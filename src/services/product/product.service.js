@@ -40,7 +40,7 @@ async function catalog(q={}){
   const opts={
     search:q.search||'',
     category:q.category||'',
-    sort:q.sort||'newest',
+    sort:q.sort||'position',
     minPrice,
     maxPrice,
     limit,
@@ -205,4 +205,10 @@ async function saveVariants(id,variants){
   return products.saveVariants(id,variants||[]);
 }
 
-module.exports={catalog,homepageHighlights,detailBySlug,create,update,saveVariants,categories};
+async function pushToTop(id){
+  const result=await products.pushToTop(id);
+  if(!result)throw notFound('Product not found.');
+  return result;
+}
+
+module.exports={catalog,homepageHighlights,detailBySlug,create,update,saveVariants,pushToTop,categories};

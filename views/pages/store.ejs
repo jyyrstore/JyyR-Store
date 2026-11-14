@@ -20,7 +20,7 @@
       String(req.query.category||'').trim(),
       String(req.query.minPrice||'').trim(),
       String(req.query.maxPrice||'').trim(),
-      String(req.query.sort||'').trim() && req.query.sort !== 'newest' ? req.query.sort : ''
+      String(req.query.sort||'').trim() && req.query.sort !== 'position' ? req.query.sort : ''
     ].filter(Boolean);
     const activeFilterCount = activeFilters.length;
   %>
@@ -96,15 +96,16 @@
     type="hidden"
     class="filter-sort-value"
     name="sort"
-    value="<%= req.query.sort||'newest' %>"
+    value="<%= req.query.sort||'position' %>"
     data-jyyr-select-value
   >
   <button class="jyyr-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" data-jyyr-select-trigger>
-    <span data-jyyr-select-label>Terbaru</span>
+    <span data-jyyr-select-label>Urutan Produk</span>
     <span class="jyyr-select-chevron" aria-hidden="true"></span>
   </button>
   <div class="jyyr-select-menu" role="listbox" data-jyyr-select-menu>
-    <button type="button" class="jyyr-select-option" role="option" data-jyyr-select-option data-value="newest" data-label="Terbaru">Terbaru</button>
+    <button type="button" class="jyyr-select-option" role="option" data-jyyr-select-option data-value="position" data-label="Urutan Produk">Urutan Produk</button>
+<button type="button" class="jyyr-select-option" role="option" data-jyyr-select-option data-value="newest" data-label="Terbaru">Terbaru</button>
     <button type="button" class="jyyr-select-option" role="option" data-jyyr-select-option data-value="popular" data-label="Populer">Populer</button>
     <button type="button" class="jyyr-select-option" role="option" data-jyyr-select-option data-value="price_asc" data-label="Harga rendah">Harga rendah</button>
     <button type="button" class="jyyr-select-option" role="option" data-jyyr-select-option data-value="price_desc" data-label="Harga tinggi">Harga tinggi</button>

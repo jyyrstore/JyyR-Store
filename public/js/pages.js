@@ -539,11 +539,20 @@
             <progress data-product-variant-icon-progress value="0" max="100" hidden></progress>
           </div>
         </div>
-        <label class="field">
-          <span>Nama Varian</span>
-          <input type="text" data-product-variant-label maxlength="120"
-            autocomplete="off" value="${esc(variant.label||'')}">
-        </label>
+        <div class="owner-product-variant-name-control">
+          <button
+            class="icon-button owner-product-variant-push"
+            type="button"
+            data-product-variant-push
+            aria-label="Naikkan posisi varian"
+            title="Naikkan posisi varian"
+          >${window.JYYRIcon?.('upload')||''}</button>
+          <label class="field">
+            <span>Nama Varian</span>
+            <input type="text" data-product-variant-label maxlength="120"
+              autocomplete="off" value="${esc(variant.label||'')}">
+          </label>
+        </div>
         <label class="field">
           <span>Jumlah (opsional)</span>
           <input type="number" data-product-variant-amount min="1" step="1"
@@ -588,6 +597,13 @@
         <div class="owner-product-variant-card-values">
           <div class="owner-product-variant-card-value">
             <div class="owner-product-variant-name-row">
+              <button
+                class="icon-button owner-product-variant-push"
+                type="button"
+                data-product-variant-push
+                aria-label="Naikkan posisi varian"
+                title="Naikkan posisi varian"
+              >${window.JYYRIcon?.('upload')||''}</button>
               <small>Nama Varian</small>
               <button class="button button-secondary" type="button"
                 data-product-variant-edit>Edit</button>
@@ -2190,6 +2206,33 @@
       return;
     }
 
+    const pushVariant=e.target.closest('[data-product-variant-push]');
+    if(pushVariant){
+      const row=pushVariant.closest('[data-product-variant-row]');
+      const section=row?.closest('[data-product-variant-editor]');
+      const list=section?.querySelector('[data-product-variant-list]');
+      if(!row||!list)return;
+
+      if(row.hasAttribute('data-product-variant-draft')){
+        const originalCard=list.querySelector('[data-product-variant-editing-card]');
+
+        if(originalCard){
+          const previous=originalCard.previousElementSibling;
+          if(previous)list.insertBefore(originalCard,previous);
+        }else{
+          const currentCount=Math.max(
+            0,
+            Math.floor(Number(row.dataset.productVariantPushUpCount)||0)
+          );
+          row.dataset.productVariantPushUpCount=String(currentCount+1);
+        }
+      }else{
+        const previous=row.previousElementSibling;
+        if(previous)list.insertBefore(row,previous);
+      }
+      return;
+    }
+
     const addVariant=e.target.closest('[data-product-variant-add]');
 
     if(addVariant){
@@ -2233,6 +2276,10 @@
         const originalIndex=originalCard
           ?[...list.querySelectorAll('[data-product-variant-card]')].indexOf(originalCard)
           :-1;
+        const pushUpCount=Math.max(
+          0,
+          Math.floor(Number(row.dataset.productVariantPushUpCount)||0)
+        );
         const stagedIcon=productVariantIconFiles.get(row)||
           row.querySelector('[data-product-variant-icon-input]')?.files?.[0]||
           (originalCard?productVariantIconFiles.get(originalCard)||null:null);
@@ -2255,9 +2302,18 @@
           originalCard.outerHTML=productVariantCardMarkup(savedVariant);
           nextCard=list.querySelectorAll('[data-product-variant-card]')[originalIndex]||null;
         }else{
-          list.insertAdjacentHTML('beforeend',productVariantCardMarkup(savedVariant));
-          const cards=list.querySelectorAll('[data-product-variant-card]');
-          nextCard=cards[cards.length-1]||null;
+          const cards=[...list.querySelectorAll('[data-product-variant-card]')];
+          const insertIndex=Math.max(0,cards.length-pushUpCount);
+          const beforeCard=cards[insertIndex]||null;
+          const markup=productVariantCardMarkup(savedVariant);
+
+          if(beforeCard){
+            beforeCard.insertAdjacentHTML('beforebegin',markup);
+          }else{
+            list.insertAdjacentHTML('beforeend',markup);
+          }
+
+          nextCard=list.querySelectorAll('[data-product-variant-card]')[insertIndex]||null;
         }
 
         if(stagedIcon&&nextCard){
@@ -3265,6 +3321,28 @@ ${productPricingModesMarkup('FIXED')}
     }
 
     const contentDelete=e.target.closest('[data-owner-content-delete]');if(contentDelete){if(!(await window.JYYRModal.confirm('Hapus content ini?')))return;try{await ownerAction('/api/owner/products/'+encodeURIComponent(contentDelete.dataset.ownerContentProduct)+'/content/'+encodeURIComponent(contentDelete.dataset.ownerContentDelete),{},'DELETE','Content dihapus.');await openOwnerContentManager(contentDelete.dataset.ownerContentProduct,contentDelete.dataset.ownerContentName||'Produk',contentDelete.dataset.ownerContentStatus||'DRAFT',contentDelete.dataset.ownerContentHasThumbnail==='1')}catch(err){toast.error(err.message)}}
+    const productPush=e.target.closest('[data-owner-product-push]');
+    if(productPush){
+      const id=encodeURIComponent(productPush.dataset.ownerProductPush||'');
+      if(!id)return;
+
+      productPush.disabled=true;
+
+      try{
+        await ownerAction(
+          '/api/owner/products/'+id+'/push',
+          {},
+          'POST',
+          'Posisi produk diperbarui.'
+        );
+        location.reload();
+      }catch(err){
+        toast.error(err.message);
+        productPush.disabled=false;
+      }
+      return;
+    }
+
     const publish=e.target.closest('[data-owner-publish]');if(publish){if(!(await window.JYYRModal.confirm('Publish produk ini?')))return;try{await ownerAction('/api/owner/products/'+publish.dataset.ownerPublish+'/publish',{},'POST','Produk dipublish.');location.reload()}catch(err){toast.error(err.message)}}
     const unpublish=e.target.closest('[data-owner-unpublish]');if(unpublish){if(!(await window.JYYRModal.confirm('Unpublish produk ini?')))return;try{await ownerAction('/api/owner/products/'+unpublish.dataset.ownerUnpublish+'/unpublish',{},'POST','Produk di-unpublish.');location.reload()}catch(err){toast.error(err.message)}}
     const dup=e.target.closest('[data-owner-duplicate]');if(dup){if(!(await window.JYYRModal.confirm('Duplikat produk ini?')))return;try{await ownerAction('/api/owner/products/'+dup.dataset.ownerDuplicate+'/duplicate',{},'POST','Produk diduplikasi.');location.reload()}catch(err){toast.error(err.message)}}

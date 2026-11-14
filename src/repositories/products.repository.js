@@ -18,7 +18,7 @@ function safeIntRange(value,fallback,min=0,max=1000000){
 function filters({
   search='',
   category='',
-  sort='newest',
+  sort='position',
   minPrice=null,
   maxPrice=null,
   status='PUBLISHED'
@@ -60,7 +60,11 @@ function filters({
     safeMax
   ];
 
-  let order='p.created_at desc';
+  let order='p.sort_order asc,p.created_at desc,p.id desc';
+
+  if(sort==='newest'){
+    order='p.created_at desc,p.id desc';
+  }
 
   if(sort==='popular'){
     order='p.purchase_count desc,p.created_at desc';
@@ -97,7 +101,7 @@ async function listHomepageHighlights(limitPerCategory=6){
         )::int as category_product_count,
         row_number() over (
           partition by homepage_category_id
-          order by created_at desc,id desc
+          order by sort_order asc,created_at desc,id desc
         ) as category_product_rank
       from (
         select
@@ -159,14 +163,14 @@ async function listHomepageHighlights(limitPerCategory=6){
     order by
       coalesce(category_sort_order,2147483647),
       coalesce(category_name,'Produk lainnya'),
-      created_at desc,id desc`;
+      sort_order asc,created_at desc,id desc`;
   return (await query(sql,[limit])).rows;
 }
 
 async function adminList({
   search='',
   status='',
-  sort='newest',
+  sort='position',
   limit=100,
   offset=0
 }={}){
@@ -187,7 +191,11 @@ async function adminList({
     where.push(`p.status <> 'ARCHIVED'`);
   }
 
-  let order='p.created_at desc';
+  let order='p.sort_order asc,p.created_at desc,p.id desc';
+
+  if(sort==='newest'){
+    order='p.created_at desc,p.id desc';
+  }
 
   if(sort==='popular'){
     order='p.purchase_count desc,p.created_at desc';
@@ -240,6 +248,65 @@ async function adminList({
       args
     )
   ).rows;
+}
+
+async function pushToTop(id){
+  return withTransaction(async(client)=>{
+    await client.query(
+      "select pg_advisory_xact_lock(hashtext('jyyrstore:products:sort_order'))"
+    );
+
+    const current=(await client.query(
+      'select id from products where id=$1 for update',
+      [id]
+    )).rows[0];
+
+    if(!current)return null;
+
+    await client.query(
+      `with ordered_products as (
+        select
+          id,
+          row_number() over (
+            order by sort_order asc,created_at desc,id desc
+          )-1 as current_position,
+          lag(id) over (
+            order by sort_order asc,created_at desc,id desc
+          ) as previous_id
+        from products
+      ),
+      target_product as (
+        select current_position,previous_id
+        from ordered_products
+        where id=$1
+      ),
+      reordered_products as (
+        select
+          ordered_products.id,
+          case
+            when ordered_products.id=$1
+              and target_product.previous_id is not null
+              then target_product.current_position-1
+            when ordered_products.id=target_product.previous_id
+              then target_product.current_position
+            else ordered_products.current_position
+          end as next_sort_order
+        from ordered_products
+        cross join target_product
+      )
+      update products p
+      set sort_order=reordered_products.next_sort_order
+      from reordered_products
+      where reordered_products.id=p.id
+        and p.sort_order is distinct from reordered_products.next_sort_order`,
+      [id]
+    );
+
+    return (await client.query(
+      'select id,name,sort_order from products where id=$1',
+      [id]
+    )).rows[0]||null;
+  });
 }
 
 async function count(opts={}){ const f=filters(opts); return Number((await query(`select count(*)::int count from products p left join categories c on c.id=p.category_id left join categories parent_c on parent_c.id=c.parent_id where ${f.where}`,f.args)).rows[0].count); }
@@ -844,6 +911,6 @@ async function countAdmin({
   );
 }
 
-module.exports={list,listHomepageHighlights,adminList,count,findBySlug,findById,create,update,remove,deletePermanently,unpublish,duplicate,contents,contentsForOrder,addContent,updateContent,deleteContent,event,listVariants,findVariant,updateVariantIcon,hasReservedVariants,saveVariants,
+module.exports={list,listHomepageHighlights,adminList,pushToTop,count,findBySlug,findById,create,update,remove,deletePermanently,unpublish,duplicate,contents,contentsForOrder,addContent,updateContent,deleteContent,event,listVariants,findVariant,updateVariantIcon,hasReservedVariants,saveVariants,
   countAdmin
 };

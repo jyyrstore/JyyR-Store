@@ -1441,7 +1441,7 @@ test('homepage displays products across active category groups and uncategorized
   assert.match(repository,/p\.status='PUBLISHED'/);
   assert.match(repository,/homepage_category_id/);
   assert.match(repository,/count\(\*\) over\s*\(\s*partition by homepage_category_id\s*\)::int as category_product_count/);
-  assert.match(repository,/row_number\(\) over\s*\(\s*partition by homepage_category_id\s*order by created_at desc,id desc\s*\) as category_product_rank/);
+  assert.match(repository,/row_number\(\) over\s*\(\s*partition by homepage_category_id\s*order by sort_order asc,created_at desc,id desc\s*\) as category_product_rank/);
   assert.match(service,/async function homepageHighlights\(limitPerCategory=6\)/);
   assert.match(service,/products\.listHomepageHighlights\(limitPerCategory\)/);
   assert.match(service,/categoryTotals\.get\(String\(category\.id\)\)\|\|0/);
@@ -2208,7 +2208,7 @@ test('Owner product variants use structured inputs instead of JSON text',()=>{
   const variantCardMarkup=pages.slice(variantCardStart,variantCardEnd);
   assert.match(
     variantCardMarkup,
-    /<div class="owner-product-variant-name-row">\s*<small>Nama Varian<\/small>\s*<button[^>]*data-product-variant-edit>/
+    /<div class="owner-product-variant-name-row">\s*<button[^>]*data-product-variant-push[^>]*>[\s\S]*?<\/button>\s*<small>Nama Varian<\/small>\s*<button[^>]*data-product-variant-edit>/
   );
   assert.match(
     variantCardMarkup,
@@ -2303,6 +2303,80 @@ test('Owner product variants use structured inputs instead of JSON text',()=>{
     afterSaveCard > variantsCard && afterSaveTitle > afterSaveCard,
     'Setelah disimpan harus menjadi card tersendiri.'
   );
+});
+
+
+test('owner product and variant push controls preserve manual position ordering',()=>{
+  const repository=fs.readFileSync(
+    path.join(root,'src/repositories/products.repository.js'),
+    'utf8'
+  );
+  const migration=fs.readFileSync(
+    path.join(root,'database/migrations/047_product_sort_order.sql'),
+    'utf8'
+  );
+  const service=fs.readFileSync(
+    path.join(root,'src/services/product/product.service.js'),
+    'utf8'
+  );
+  const controller=fs.readFileSync(
+    path.join(root,'src/controllers/api.controller.js'),
+    'utf8'
+  );
+  const routes=fs.readFileSync(
+    path.join(root,'src/routes/index.js'),
+    'utf8'
+  );
+  const pageController=fs.readFileSync(
+    path.join(root,'src/controllers/page.controller.js'),
+    'utf8'
+  );
+  const store=fs.readFileSync(
+    path.join(root,'views/pages/store.ejs'),
+    'utf8'
+  );
+  const owner=fs.readFileSync(
+    path.join(root,'views/owner/index.ejs'),
+    'utf8'
+  );
+  const browser=fs.readFileSync(
+    path.join(root,'public/js/pages.js'),
+    'utf8'
+  );
+  const responsive=fs.readFileSync(
+    path.join(root,'public/css/responsive.css'),
+    'utf8'
+  );
+  const pageCss=fs.readFileSync(
+    path.join(root,'public/css/pages.css'),
+    'utf8'
+  );
+  const {icons}=require('../../src/utils/icons');
+
+  assert.ok(icons.upload,'Icon upload harus tersedia di registry.');
+  assert.match(migration,/sort_order integer NOT NULL DEFAULT 0/i);
+  assert.match(repository,/async function pushToTop\(id\)/);
+  assert.match(repository,/pg_advisory_xact_lock\(hashtext\(/);
+  assert.ok(repository.includes("sort='position'"));
+  assert.match(repository,/order by sort_order asc,created_at desc,id desc/);
+  assert.ok(routes.includes("ownerApi.post('/products/:id/push'"));
+  assert.ok(controller.includes('productPush:async(req,res)=>'));
+  assert.ok(service.includes("sort:q.sort||'position'"));
+  assert.ok(service.includes('pushToTop'));
+  assert.ok(pageController.includes("sort:'position'"));
+  assert.ok(store.includes("req.query.sort||'position'"));
+  assert.ok(store.includes('data-value="position"'));
+  assert.ok(owner.includes('data-owner-product-push'));
+  assert.ok(owner.includes("icon('upload','icon')"));
+  assert.ok(browser.includes('data-owner-product-push'));
+  assert.ok(browser.includes('data-product-variant-push'));
+  assert.ok(browser.includes("window.JYYRIcon?.('upload')"));
+  assert.match(repository,/lag\(id\)\s+over\s*\(/i);
+  assert.ok(browser.includes('row.previousElementSibling'));
+  assert.ok(browser.includes('list.insertBefore(row,previous)'));
+  assert.ok(browser.includes('productVariantPushUpCount'));
+  assert.ok(responsive.includes('owner-product-card-heading'));
+  assert.ok(pageCss.includes('owner-product-variant-name-control'));
 });
 
 test('owner variant icons remain separate from the product cover',()=>{

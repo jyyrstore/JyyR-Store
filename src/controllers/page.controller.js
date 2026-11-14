@@ -134,7 +134,7 @@ async function productDetail(req,res,next){
       productReviews.summaryForProduct(product.id),
       products.catalog({
         category:product.category_slug||'',
-        sort:'newest',
+        sort:'position',
         limit:6
       }),
       products.catalog({

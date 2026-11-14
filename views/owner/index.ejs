@@ -314,7 +314,16 @@
             <div class="owner-product-card-grid">
               <% (items||[]).forEach(row=>{ %>
                 <article class="owner-product-card">
-                  <h3 class="owner-product-card-title"><%= row.name %></h3>
+                  <div class="owner-product-card-heading">
+                    <h3 class="owner-product-card-title"><%= row.name %></h3>
+                    <button
+                      class="icon-button owner-product-push"
+                      type="button"
+                      data-owner-product-push="<%= row.id %>"
+                      aria-label="Naikkan posisi produk"
+                      title="Naikkan posisi produk"
+                    ><%- icon('upload','icon') %></button>
+                  </div>
 
                   <div class="owner-product-card-details">
                     <div class="owner-product-card-metric-group">

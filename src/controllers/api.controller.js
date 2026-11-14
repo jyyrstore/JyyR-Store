@@ -509,10 +509,11 @@ const ownerController={
  dashboard:async(req,res)=>ok(res,await analytics.dashboard()),
  analytics:async(req,res)=>ok(res,await analytics.period(req.query.period||'30d',req.query.from,req.query.to)),
  topOrders:async(req,res)=>ok(res,(await analytics.period(req.query.period||'30d',req.query.from,req.query.to)).top),
- products:async(req,res)=>ok(res,await require('../repositories/products.repository').adminList({search:req.query.search,status:req.query.status||'',sort:req.query.sort||'newest',limit:req.query.limit||100,offset:req.query.offset||0})),
+ products:async(req,res)=>ok(res,await require('../repositories/products.repository').adminList({search:req.query.search,status:req.query.status||'',sort:req.query.sort||'position',limit:req.query.limit||100,offset:req.query.offset||0})),
  productCreate:async(req,res)=>{const payload={...req.body,status:'DRAFT'};const p=await product.create(payload);await recordOwnerAudit(req,{action:'CREATE_PRODUCT',entityType:'product',entityId:p.id,metadata:{name:p.name,status:'DRAFT'}});return ok(res,p,201)},
  productUpdate:async(req,res)=>{const repo=require('../repositories/products.repository');const current=await repo.findById(req.params.id);if(!current)throw Object.assign(new Error('Product not found.'),{status:404,code:'PRODUCT_NOT_FOUND',expose:true});const payload={...req.body};delete payload.status;delete payload.thumbnail_path;const p=await product.update(req.params.id,payload);await recordOwnerAudit(req,{action:'EDIT_PRODUCT',entityType:'product',entityId:p.id});return ok(res,p)},
  productVariantsSave:async(req,res)=>{const variants=await product.saveVariants(req.params.id,req.body.variants);await recordOwnerAudit(req,{action:'SAVE_PRODUCT_VARIANTS',entityType:'product',entityId:req.params.id,metadata:{variantCount:variants.length}});return ok(res,{variants})},
+ productPush:async(req,res)=>{const p=await product.pushToTop(req.params.id);await recordOwnerAudit(req,{action:'PUSH_PRODUCT_TO_TOP',entityType:'product',entityId:p.id});return ok(res,p)},
  productArchive:async(req,res)=>{
    const repo=require('../repositories/products.repository');
    const p=await repo.remove(req.params.id);
