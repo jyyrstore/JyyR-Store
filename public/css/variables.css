@@ -14,6 +14,13 @@
   --surface-raised:#242930;
   --deep:#090F16;
   --panel:#181D24;
+  --surface-card-bg:var(--panel);
+  --surface-card-hover-bg:var(--surface-raised);
+  --product-card-bg:rgba(var(--deep-rgb),.25);
+  --product-card-hover-bg:rgba(var(--deep-rgb),.34);
+  --secondary-button-bg:transparent;
+  --secondary-button-hover-bg:rgba(var(--overlay-rgb),.04);
+  --category-filter-bg:transparent;
   --border:#30353B;
   --border-strong:#30353B;
   --text:#F5F9FE;
@@ -71,11 +78,18 @@
 
 :root[data-theme="light"]{
   color-scheme:light;
-  --bg:#FFFFFF;
-  --surface:#F5F5F7;
+  --bg:#E8E8E8;
+  --surface:#FCFCFC;
   --surface-raised:#EBEBED;
   --deep:#FFFFFF;
   --panel:#EBEBED;
+  --surface-card-bg:#FFFFFF;
+  --surface-card-hover-bg:#FFFFFF;
+  --product-card-bg:#FFFFFF;
+  --product-card-hover-bg:#FFFFFF;
+  --secondary-button-bg:#FFFFFF;
+  --secondary-button-hover-bg:#FFFFFF;
+  --category-filter-bg:#FFFFFF;
   --border:#D2D2D7;
   --border-strong:#D2D2D7;
   --text:#000000;
@@ -95,7 +109,7 @@
   --info:#0066CC;
   --info-text:#0066CC;
   --focus:#0071E3;
-  --surface-rgb:245,245,247;
+  --surface-rgb:252,252,252;
   --surface-raised-rgb:235,235,237;
   --deep-rgb:255,255,255;
   --primary-rgb:0,113,227;

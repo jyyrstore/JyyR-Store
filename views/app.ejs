@@ -53,8 +53,7 @@
   <% if (view !== 'pages/configuration' && !String(view||'').startsWith('pages/auth')) { %>
     <%- include('partials/header') %>
     <div class="app-shell">
-      <%- include('partials/sidebar') %>
-      <%- include('partials/theme-toggle') %>
+      <%- include('partials/sidebar', { themeToggle: include('partials/theme-toggle') }) %>
       <div class="main-column">
         <main class="main-content" id="main-content">
           <%- include(view) %>
@@ -74,6 +73,8 @@
       csrf: <%- JSON.stringify(csrfToken || '') %>,
       icons: <%- JSON.stringify(iconPaths || {}) %>,
       iconViewBoxes: {
+        "moon-sleep": "0 0 24 24",
+        "sun-16": "0 0 16 16",
         "editing-design": "0 0 1200 1175",
         "console-game": "0 0 1200 937",
         "withicons-skeuo-images": "0 0 24 24",

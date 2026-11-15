@@ -30,6 +30,7 @@ const ownerNav=[['dashboard','Dashboard','dashboard-owner'],['products','Produk'
 
       <% if (currentUser) { %>
         <div class="sidebar-section-label">Profil & Sesi</div>
+        <%- typeof themeToggle !== 'undefined' ? themeToggle : '' %>
         <a class="nav-link <%= req.path.startsWith('/profile')?'active':'' %>" href="/profile">
           <%- icon('user') %><span>Profil</span>
         </a>
@@ -71,6 +72,7 @@ const ownerNav=[['dashboard','Dashboard','dashboard-owner'],['products','Produk'
 
     <% if (currentUser) { %>
       <div class="sidebar-section-label">Profil & Sesi</div>
+      <%- typeof themeToggle !== 'undefined' ? themeToggle : '' %>
       <a class="nav-link <%= req.path.startsWith('/profile')?'active':'' %>" href="/profile"><%- icon('user') %><span>Profil</span></a>
       <button class="nav-link nav-button" data-logout><%- icon('logout') %><span>Keluar</span></button>
     <% } %>

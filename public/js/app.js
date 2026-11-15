@@ -12,15 +12,17 @@ function applyTheme(theme,persist=false){
     themeColor.content=theme==='light'?'#FFFFFF':'#090F16';
   }
 
-  const nextTheme=theme==='light'?'dark':'light';
-  const label=nextTheme==='light'
-    ? 'Aktifkan mode terang'
-    : 'Aktifkan mode gelap';
+  const label=theme==='light'
+    ? 'Theme Mode (Light)'
+    : 'Theme Mode (Dark)';
 
   document.querySelectorAll('[data-theme-toggle]').forEach(button=>{
     button.setAttribute('aria-label',label);
     button.setAttribute('title',label);
     button.setAttribute('aria-pressed',String(theme==='light'));
+
+    const status=button.querySelector('[data-theme-label]');
+    if(status)status.textContent=label;
   });
 
   if(persist){
