@@ -4,7 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="csrf-token" content="<%= csrfToken || '' %>">
-  <meta name="theme-color" content="#191827">
+  <meta name="theme-color" content="#090F16">
+  <script nonce="<%= cspNonce %>">
+    (() => {
+      const storageKey = 'jyyr-store-theme';
+      let theme = null;
+
+      try {
+        theme = window.localStorage.getItem(storageKey);
+      } catch (_) {
+        // Use the device preference when browser storage is unavailable.
+      }
+
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia?.('(prefers-color-scheme: light)')?.matches
+          ? 'light'
+          : 'dark';
+      }
+
+      document.documentElement.dataset.theme = theme;
+
+      const themeColor = document.querySelector('meta[name="theme-color"]');
+      if (themeColor) {
+        themeColor.content = theme === 'light' ? '#FFFFFF' : '#090F16';
+      }
+    })();
+  </script>
   <% if (view === 'pages/home') { %>
   <meta name="description" content="Jyyr Store menyediakan produk digital dan layanan online dengan proses pemesanan yang aman dan praktis.">
   <% } %>
@@ -29,6 +54,7 @@
     <%- include('partials/header') %>
     <div class="app-shell">
       <%- include('partials/sidebar') %>
+      <%- include('partials/theme-toggle') %>
       <div class="main-column">
         <main class="main-content" id="main-content">
           <%- include(view) %>
@@ -38,7 +64,7 @@
     <%- include('partials/bottom-nav') %>
     </div>
   <% } else { %>
-    <main class="auth-shell<%= view === 'pages/auth' && (mode === 'login' || mode === 'register') ? ' auth-shell-login' : '' %>"><%- include(view) %></main>
+    <main class="auth-shell<%= view === 'pages/auth' && (mode === 'login' || mode === 'register') ? ' auth-shell-login' : '' %>"><%- include('partials/theme-toggle') %><%- include(view) %></main>
   <% } %>
   <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
   <div id="modal-root"></div>
