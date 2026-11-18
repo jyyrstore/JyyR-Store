@@ -1,10 +1,13 @@
 <% if(mode==='login' || mode==='register'){ %>
 <div class="auth-card auth-card-login">
   <section class="auth-login-aside">
-    <a class="brand auth-login-brand" href="/">
-      <span class="brand-mark"><%- icon('shop-twotone') %></span>
-      <span>Jyyr Store</span>
-    </a>
+    <div class="auth-login-topbar">
+      <a class="brand auth-login-brand" href="/">
+        <span class="brand-mark"><%- icon('shop-twotone') %></span>
+        <span>Jyyr Store</span>
+      </a>
+      <%- themeToggle %>
+    </div>
 
     <div class="auth-login-aside-copy">
       <h1><%= mode==='register' ? 'Mulai perjalanan Anda.' : 'Selamat datang kembali.' %></h1>
@@ -297,8 +300,8 @@
       data-register-note
       <% if(mode==='register' && verificationStep){ %>hidden<% } %>
     >
-      <%- icon('shield-key-outline') %>
-      <span>Jangan bagikan password akun Anda kepada orang lain.</span>
+      <%- icon('shield-user-broken') %>
+      <span>Jangan bagikan password akun<br>&nbsp;&nbsp;&nbsp;Anda kepada orang lain.</span>
     </p>
   </section>
 </div>

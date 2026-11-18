@@ -50,8 +50,14 @@
   <script defer src="<%= staticAsset('/js/app.js') %>"></script>
 </head>
 <body data-view="<%= view || '' %>" data-user-id="<%= currentUser?.id || '' %>">
+<%
+  const showPageChrome = ['/', '/store', '/orders', '/deposit', '/profile']
+    .includes(String(req.path || '/').replace(/\/+$/, '') || '/');
+%>
   <% if (view !== 'pages/configuration' && !String(view||'').startsWith('pages/auth')) { %>
-    <%- include('partials/header') %>
+    <% if (showPageChrome) { %>
+      <%- include('partials/header') %>
+    <% } %>
     <div class="app-shell">
       <%- include('partials/sidebar', { themeToggle: include('partials/theme-toggle') }) %>
       <div class="main-column">
@@ -60,10 +66,19 @@
         </main>
         <%- include('partials/footer') %>
       </div>
-    <%- include('partials/bottom-nav') %>
+    <% if (showPageChrome) { %>
+      <%- include('partials/bottom-nav') %>
+    <% } %>
     </div>
   <% } else { %>
-    <main class="auth-shell<%= view === 'pages/auth' && (mode === 'login' || mode === 'register') ? ' auth-shell-login' : '' %>"><%- include('partials/theme-toggle') %><%- include(view) %></main>
+    <main class="auth-shell<%= view === 'pages/auth' && (mode === 'login' || mode === 'register') ? ' auth-shell-login' : '' %>">
+      <% if (view === 'pages/auth' && (mode === 'login' || mode === 'register')) { %>
+        <%- include(view, { themeToggle: include('partials/theme-toggle') }) %>
+      <% } else { %>
+        <%- include('partials/theme-toggle') %>
+        <%- include(view) %>
+      <% } %>
+    </main>
   <% } %>
   <div id="toast-root" class="toast-root" aria-live="polite" aria-atomic="true"></div>
   <div id="modal-root"></div>
@@ -73,6 +88,7 @@
       csrf: <%- JSON.stringify(csrfToken || '') %>,
       icons: <%- JSON.stringify(iconPaths || {}) %>,
       iconViewBoxes: {
+        "clean-broom-wipe": "0 0 48 48",
         "moon-sleep": "0 0 24 24",
         "sun-16": "0 0 16 16",
         "editing-design": "0 0 1200 1175",
