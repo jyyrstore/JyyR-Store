@@ -59,9 +59,11 @@ function staticAsset(assetPath) {
 
 async function createApp() {
   const env = loadEnv();
-  await initDatabase(env);
   initSupabase(env);
-  await initStorage(env);
+  await Promise.all([
+    initDatabase(env),
+    initStorage(env)
+  ]);
   initPaymentProvider(env);
   initEmail(env);
 
