@@ -1767,7 +1767,6 @@
   }
   function formButtons(label='Simpan'){return `<div class="inline-actions"><button class="button button-primary">${esc(label)}</button><button class="button button-secondary" type="button" data-modal-close>${window.JYYRIcon?.('circle-x','icon icon-circle-x')||''}Batal</button></div>`}
 
-  document.addEventListener('error',e=>{const img=e.target;if(img?.matches?.('[data-image-fallback]')){img.hidden=true;img.nextElementSibling?.removeAttribute('hidden');if(img.matches('.detail-image'))document.querySelector('[data-product-image-open]')?.setAttribute('hidden','')} if(img?.matches?.('[data-image-fallback-hide]'))img.hidden=true;},{capture:true});
   document.addEventListener('change',e=>{
     const pricingModeInput=e.target.closest('input[name="pricing_mode"]');
     if(pricingModeInput){
@@ -2176,29 +2175,6 @@
   });
 
   document.addEventListener('click',async e=>{
-    const homeCategoryFilter=e.target.closest('[data-home-category-filter]');
-    if(homeCategoryFilter){
-      const homePage=homeCategoryFilter.closest('.home-page');
-      const filterBar=homeCategoryFilter.closest('.home-category-filters');
-      if(!homePage||!filterBar)return;
-
-      const selectedCategory=homeCategoryFilter.dataset.homeCategoryFilter;
-
-      filterBar.querySelectorAll('[data-home-category-filter]').forEach(button=>{
-        const active=button===homeCategoryFilter;
-        button.classList.toggle('is-active',active);
-        button.setAttribute('aria-pressed',String(active));
-      });
-
-      homePage.querySelectorAll('[data-home-category-group]').forEach(group=>{
-        group.hidden=
-          selectedCategory!=='all' &&
-          group.dataset.homeCategoryGroup!==selectedCategory;
-      });
-
-      return;
-    }
-
     const editorBack=e.target.closest('[data-owner-editor-back]');
     if(editorBack){
       e.preventDefault();

@@ -846,6 +846,10 @@ test('Product detail image preview crops to 4:5 and opens active image',()=>{
     path.join(root,'public/js/pages.js'),
     'utf8'
   );
+  const runtime=fs.readFileSync(
+    path.join(root,'public/js/app.js'),
+    'utf8'
+  );
   const modal=fs.readFileSync(
     path.join(root,'public/js/modal.js'),
     'utf8'
@@ -914,8 +918,8 @@ test('Product detail image preview crops to 4:5 and opens active image',()=>{
   assert.ok(browser.includes('swapProductDetailImage(modalImage,nextIconUrl)'));
   assert.match(css,/\.detail-image-open\s*\{[^}]*touch-action:\s*pan-y/s);
   assert.match(css,/\.product-image-modal-content\s*\{[^}]*touch-action:\s*none/s);
-  assert.match(browser,/img\.matches\('\.detail-image'\)/);
-  assert.match(browser,/querySelector\('\[data-product-image-open\]'\)/);
+  assert.match(runtime,/img\.matches\('\.detail-image'\)/);
+  assert.match(runtime,/querySelector\('\[data-product-image-open\]'\)/);
   assert.match(browser,/window\.setTimeout\(\(\)=>\{\s*suppressProductImageSwipeClick=false;\s*\},0\)/);
 
   assert.match(modal,/window\.JYYRModal=\{open,close,confirm\}/);

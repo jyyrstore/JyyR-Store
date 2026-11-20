@@ -134,6 +134,8 @@
   <script defer src="<%= staticAsset('/js/modal.js') %>"></script>
   <script defer src="<%= staticAsset('/js/pickers.js') %>"></script>
   <script defer src="<%= staticAsset('/js/toast.js') %>"></script>
+  <% if (view !== 'pages/home' || currentUser) { %>
   <script defer src="<%= staticAsset('/js/pages.js') %>"></script>
+  <% } %>
 </body>
 </html>
