@@ -1218,7 +1218,7 @@
 .detail-variant-card{
   min-width:0;
   padding:18px;
-  background:var(--panel);
+  background:var(--surface-card-bg);
   border:1px solid var(--border);
   border-radius:var(--radius-lg);
 }
@@ -1249,7 +1249,7 @@
   gap:12px;
   border:1px solid var(--border);
   border-radius:var(--radius-md);
-  background:var(--surface);
+  background:var(--surface-card-bg);
   color:var(--text);
   text-align:left;
   white-space:normal;

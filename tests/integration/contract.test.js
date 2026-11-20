@@ -25,7 +25,7 @@ test('customer page titles use consistent contextual icons',()=>{
     ['views/pages/deposit.ejs','wallet-plus','Isi Saldo'],
     ['views/pages/messages.ejs','mail-check','Pesan'],
     ['views/pages/tickets.ejs','user-headset-outline','Tiket bantuan'],
-    ['views/pages/notifications.ejs','circle-alert','Notifikasi'],
+    ['views/pages/notifications.ejs','bell','Notifikasi'],
     ['views/pages/services.ejs','layanan','Layanan'],
     ['views/pages/faq.ejs','help-circle','Pertanyaan yang sering diajukan'],
     ['views/pages/security.ejs','shield-key-outline','Keamanan Jyyr Store']
@@ -45,7 +45,8 @@ test('customer page titles use consistent contextual icons',()=>{
     );
 
     assert.ok(
-      registry.includes(`'${name}':`),
+      registry.includes(`'${name}':`) ||
+      registry.includes(`${name}:`),
       `Icon ${name} harus tersedia di registry.`
     );
   }

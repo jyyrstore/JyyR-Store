@@ -55,9 +55,7 @@
     .includes(String(req.path || '/').replace(/\/+$/, '') || '/');
 %>
   <% if (view !== 'pages/configuration' && !String(view||'').startsWith('pages/auth')) { %>
-    <% if (showPageChrome) { %>
-      <%- include('partials/header') %>
-    <% } %>
+    <%- include('partials/header') %>
     <div class="app-shell">
       <%- include('partials/sidebar', { themeToggle: include('partials/theme-toggle') }) %>
       <div class="main-column">
@@ -88,6 +86,7 @@
       csrf: <%- JSON.stringify(csrfToken || '') %>,
       icons: <%- JSON.stringify(iconPaths || {}) %>,
       iconViewBoxes: {
+        "go-back": "0 0 16 16",
         "clean-broom-wipe": "0 0 48 48",
         "moon-sleep": "0 0 24 24",
         "sun-16": "0 0 16 16",

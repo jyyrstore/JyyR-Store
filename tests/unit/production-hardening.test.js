@@ -178,11 +178,11 @@ test('profile save updates identity without reload',()=>{
   assert.match(source,/data-profile-username/);
 });
 
-test('header exposes profile update hooks',()=>{
+test('header exposes theme toggle instead of profile update hooks',()=>{
   const source=read('views/partials/header.ejs');
 
-  assert.match(source,/data-profile-avatar/);
-  assert.match(source,/data-profile-name/);
+  assert.match(source,/<%- include\('theme-toggle'\) %>/);
+  assert.doesNotMatch(source,/data-profile-avatar|data-profile-name|class="profile-chip"/);
 });
 
 test('profile CSS is responsive',()=>{
