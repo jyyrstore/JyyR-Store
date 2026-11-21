@@ -261,7 +261,9 @@ const orderController={
    const reviewReturnUrl=(()=>{
      try{
        const url=new URL(returnUrl);
-       url.searchParams.set('reviewOrder',created.order.id);
+       url.pathname='/orders/'+encodeURIComponent(created.order.id);
+       url.search='';
+       url.searchParams.set('review','1');
        return url.toString();
      }catch{return returnUrl;}
    })();

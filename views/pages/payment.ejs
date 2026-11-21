@@ -430,7 +430,7 @@
             }
 
             location.replace(
-              '/orders?reviewOrder='+encodeURIComponent(orderId)
+              '/orders/'+encodeURIComponent(orderId)+'?review=1'
             );
             return;
           }
@@ -515,7 +515,7 @@
       }
 
       location.replace(
-        '/orders?reviewOrder='+encodeURIComponent(orderId)
+        '/orders/'+encodeURIComponent(orderId)+'?review=1'
       );
     }catch(error){
       if(simulationFeedback){
@@ -538,7 +538,7 @@
   // Status awal PAID hanya mengalihkan pembayaran yang terkait pesanan.
   if(currentStatus==='PAID' && orderId){
     location.replace(
-      '/orders?reviewOrder='+encodeURIComponent(orderId)
+      '/orders/'+encodeURIComponent(orderId)+'?review=1'
     );
     return;
   }

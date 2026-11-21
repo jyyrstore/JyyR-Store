@@ -20,6 +20,8 @@
   --product-card-hover-bg:rgba(var(--deep-rgb),.34);
   --secondary-button-bg:transparent;
   --secondary-button-hover-bg:rgba(var(--overlay-rgb),.04);
+  --deep-control-bg:var(--deep);
+  --surface-control-bg:var(--surface);
   --category-filter-bg:transparent;
   --border:#30353B;
   --border-strong:#30353B;
@@ -96,8 +98,10 @@
   --surface-card-hover-bg:#FFFFFF;
   --product-card-bg:#FFFFFF;
   --product-card-hover-bg:#FFFFFF;
-  --secondary-button-bg:#FFFFFF;
-  --secondary-button-hover-bg:#FFFFFF;
+  --secondary-button-bg:#F1F1F3;
+  --secondary-button-hover-bg:#E7E7EB;
+  --deep-control-bg:#F1F1F3;
+  --surface-control-bg:#F1F1F3;
   --category-filter-bg:#FFFFFF;
   --border:#D2D2D7;
   --border-strong:#D2D2D7;

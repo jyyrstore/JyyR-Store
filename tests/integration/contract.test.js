@@ -9,6 +9,78 @@ const dashboardView=fs.readFileSync(path.join(root,'views/pages/dashboard.ejs'),
 const migrations=fs.readdirSync(path.join(root,'database/migrations')).filter(x=>x.endsWith('.sql')).map(x=>fs.readFileSync(path.join(root,'database/migrations',x),'utf8')).join('\n');
 for(const r of ['/','/store','/product/:slug','/dashboard','/cart','/checkout','/orders','/deposit','/history','/profile','/tickets','/notifications','/messages','/services','/faq','/security','/owner']) test(`required route ${r}`,()=>assert.ok(route.includes(`'${r}'`),r));
 
+test('light theme separates interactive controls from card surfaces',()=>{
+  const variables=fs.readFileSync(
+    path.join(root,'public/css/variables.css'),
+    'utf8'
+  );
+  const components=fs.readFileSync(
+    path.join(root,'public/css/components.css'),
+    'utf8'
+  );
+  const store=fs.readFileSync(
+    path.join(root,'public/css/store.css'),
+    'utf8'
+  );
+  const pages=fs.readFileSync(
+    path.join(root,'public/css/pages.css'),
+    'utf8'
+  );
+
+  const lightStart=variables.indexOf(':root[data-theme="light"]{');
+  assert.ok(lightStart>=0,'light theme token block must exist');
+
+  const light=variables.slice(lightStart);
+
+  assert.match(light,/--surface-card-bg:#FFFFFF;/);
+  assert.match(light,/--secondary-button-bg:#F1F1F3;/);
+  assert.match(light,/--secondary-button-hover-bg:#E7E7EB;/);
+  assert.match(light,/--deep-control-bg:#F1F1F3;/);
+  assert.match(light,/--surface-control-bg:#F1F1F3;/);
+
+  assert.match(variables,/--deep-control-bg:var\(--deep\);/);
+  assert.match(variables,/--surface-control-bg:var\(--surface\);/);
+
+  assert.match(
+    components,
+    /\.button-secondary\{[^}]*background:var\(--secondary-button-bg\)/s
+  );
+  assert.match(
+    components,
+    /\.pagination-link\{[^}]*background:var\(--surface-control-bg\)/s
+  );
+  assert.match(
+    components,
+    /\.jyyr-stepper button\{[^}]*background:var\(--deep-control-bg\)/s
+  );
+  assert.match(
+    components,
+    /\.jyyr-time-preset\{[^}]*background:var\(--deep-control-bg\)/s
+  );
+
+  assert.match(
+    store,
+    /\.amount-button\{[^}]*background:var\(--surface-control-bg\)/s
+  );
+  assert.match(
+    store,
+    /\.payment-option\{[^}]*background:var\(--deep-control-bg\)/s
+  );
+  assert.match(
+    store,
+    /\.product-review-star-button\{[^}]*background:var\(--deep-control-bg\)/s
+  );
+  assert.match(
+    store,
+    /\.recipient-country-option\{[^}]*background:var\(--deep-control-bg\)/s
+  );
+
+  assert.match(
+    pages,
+    /\.product-detail \.detail-variant-card \[data-product-variant-picker\] \.product-variant-card-option\{[^}]*background:var\(--surface-control-bg\)/s
+  );
+});
+
 test('customer page titles use consistent contextual icons',()=>{
   const registry=fs.readFileSync(
     path.join(root,'src/utils/icons.js'),'utf8'

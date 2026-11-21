@@ -39,6 +39,87 @@ test('post-payment review prompt exists',()=>{
     /Beri rating untuk membantu pembeli lain mengetahui pengalaman kamu\./
   );
 
+  const summaryMainStart=prompt.indexOf(
+    '<div class="payment-review-order-product">'
+  );
+  const summaryDateStart=prompt.indexOf(
+    '<div class="payment-review-order-date">'
+  );
+  const summaryDateEnd=prompt.indexOf(
+    '</div>',
+    summaryDateStart
+  );
+
+  assert.ok(
+    summaryMainStart>=0 &&
+    summaryDateStart>summaryMainStart &&
+    summaryDateEnd>summaryDateStart
+  );
+
+  const summaryMain=prompt.slice(
+    summaryMainStart,
+    summaryDateStart
+  );
+  const summaryDate=prompt.slice(
+    summaryDateStart,
+    summaryDateEnd
+  );
+
+  const productTitlePosition=summaryMain.indexOf(
+    '<div class="payment-review-product-title">'
+  );
+  const pricePosition=summaryMain.indexOf(
+    '<strong class="payment-review-product-price">'
+  );
+
+  assert.ok(
+    productTitlePosition>=0 &&
+    pricePosition>productTitlePosition,
+    'price must appear below product or variant name'
+  );
+
+  const priceRowStart=summaryMain.indexOf(
+    '<div class="payment-review-product-price-row">'
+  );
+  const priceRowEnd=summaryMain.indexOf(
+    '</div>',
+    priceRowStart
+  );
+
+  assert.ok(
+    priceRowStart>=0 &&
+    priceRowEnd>priceRowStart
+  );
+
+  const priceRow=summaryMain.slice(
+    priceRowStart,
+    priceRowEnd
+  );
+
+  const priceRowPricePosition=priceRow.indexOf(
+    '<strong class="payment-review-product-price">'
+  );
+  const quantityPosition=priceRow.indexOf(
+    '<span class="payment-review-order-quantity">'
+  );
+
+  assert.ok(
+    priceRowPricePosition>=0 &&
+    quantityPosition>priceRowPricePosition,
+    'quantity must appear to the right of price'
+  );
+
+  const timePosition=summaryDate.indexOf(
+    '<small>${esc(orderTimeLabel)}</small>'
+  );
+
+  assert.ok(timePosition>=0);
+
+  assert.doesNotMatch(
+    summaryDate,
+    /payment-review-order-quantity/
+  );
+
   assert.match(
     pages,
     /Beri Rating/
@@ -102,6 +183,16 @@ test('review popup star buttons keep 44px touch targets on mobile',()=>{
     popupStyles,
     /\.payment-review-prompt \.product-review-star-button\{\s*width:38px;/
   );
+
+  const productTitleStyle=popupStyles.match(
+    /\.payment-review-product-title strong\{([^}]*)\}/
+  );
+
+  assert.ok(productTitleStyle);
+  assert.match(productTitleStyle[1], /overflow:hidden;/);
+  assert.match(productTitleStyle[1], /text-overflow:ellipsis;/);
+  assert.match(productTitleStyle[1], /white-space:nowrap;/);
+  assert.doesNotMatch(productTitleStyle[1], /overflow-wrap:anywhere;/);
 });
 
 test('review popup close actions dismiss consistently without changing shared modal',()=>{
@@ -202,7 +293,7 @@ test('wallet orders render balance payment details without a gateway payment row
   ));
 });
 
-test('gateway payment callback becomes order-specific',()=>{
+test('gateway payment returns to its matching order detail',()=>{
   const source=read(
     'src/controllers/api.controller.js'
   );
@@ -212,14 +303,49 @@ test('gateway payment callback becomes order-specific',()=>{
     /reviewReturnUrl/
   );
 
-  assert.match(
+  assert.ok(
+    source.includes(
+      "url.pathname='/orders/'+encodeURIComponent(created.order.id);"
+    )
+  );
+
+  assert.ok(
+    source.includes("url.searchParams.set('review','1');")
+  );
+
+  assert.doesNotMatch(
     source,
-    /searchParams\.set\('reviewOrder',created\.order\.id\)/
+    /searchParams\.set\('reviewOrder'/
   );
 
   assert.match(
     source,
     /createForOrder\(\s*req\.user\.id,\s*created\.order,\s*reviewReturnUrl,\s*\{paymentMode\}\s*\)/
+  );
+
+  const paymentPage=read('views/pages/payment.ejs');
+
+  const successRedirect=
+    "'/orders/'+encodeURIComponent(orderId)+'?review=1'";
+
+  assert.equal(
+    paymentPage.split(successRedirect).length-1,
+    3,
+    'all three PAID redirect paths must open order detail'
+  );
+
+  assert.doesNotMatch(
+    paymentPage,
+    /\/orders\?reviewOrder=/
+  );
+
+  const pages=read('public/js/pages.js');
+
+  assert.ok(
+    pages.includes(
+      "destination=\n            '/orders/'+\n            encodeURIComponent(r.order.id)+\n            '?review=1';"
+    ),
+    'wallet checkout must preserve its order-detail destination'
   );
 });
 

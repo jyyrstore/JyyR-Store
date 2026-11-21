@@ -4945,13 +4945,15 @@ ${productPricingModesMarkup('FIXED')}
               `}
             </div>
             <div class="payment-review-order-product">
-            <div class="payment-review-product-title">
-              <strong>${esc(item.variant_id ? (item.variant_label||'Varian produk') : (item.product_name||'Produk'))}</strong>
-              <small>${Number(item.quantity||1)} ×</small>
-            </div>
-            <strong class="payment-review-product-price">
-              ${money(item.unit_price||0)}
-            </strong>
+              <div class="payment-review-product-title">
+                <strong>${esc(item.variant_id ? (item.variant_label||'Varian produk') : (item.product_name||'Produk'))}</strong>
+              </div>
+              <div class="payment-review-product-price-row">
+                <strong class="payment-review-product-price">
+                  ${money(item.unit_price||0)}
+                </strong>
+                <span class="payment-review-order-quantity">${Number(item.quantity||1)} ×</span>
+              </div>
             </div>
           </div>
           <div class="payment-review-order-date">

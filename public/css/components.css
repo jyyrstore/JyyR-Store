@@ -639,10 +639,13 @@
 }
 
 .payment-review-product-title strong{
+  display:block;
   min-width:0;
+  overflow:hidden;
   font-size:13px;
   line-height:1.4;
-  overflow-wrap:anywhere;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 .payment-review-product-title small{
@@ -651,6 +654,23 @@
   color:var(--muted);
   font-size:12px;
   line-height:1.4;
+}
+
+.payment-review-product-price-row{
+  display:flex;
+  align-items:baseline;
+  flex-wrap:nowrap;
+  gap:8px;
+  min-width:0;
+}
+
+.payment-review-order-quantity{
+  flex:0 0 auto;
+  margin:0;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.4;
+  white-space:nowrap;
 }
 
 .payment-review-product-price{
@@ -1197,7 +1217,7 @@ body.no-scroll{
   justify-content:center;
   border:1px solid var(--border);
   border-radius:10px;
-  background:var(--surface);
+  background:var(--surface-control-bg);
   color:var(--text);
   font-size:14px;
   font-weight:700;
@@ -1767,7 +1787,7 @@ body.no-scroll{
   height:44px;
   border:1px solid var(--border);
   border-radius:var(--radius-md);
-  background:var(--deep);
+  background:var(--deep-control-bg);
   color:var(--text);
   font:inherit;
   font-size:18px;
@@ -1795,7 +1815,7 @@ body.no-scroll{
   min-height:50px;
   border:1px solid var(--border);
   border-radius:12px;
-  background:var(--deep);
+  background:var(--deep-control-bg);
   color:var(--text);
   font:inherit;
   font-weight:800;
