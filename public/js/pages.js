@@ -2184,6 +2184,350 @@
     }
   });
 
+  const OWNER_PRODUCT_DELETE_REVEAL=88;
+  let ownerProductSwipeGesture=null;
+  let ownerProductIgnoreCardClickUntil=0;
+
+  function setOwnerProductSwipeOpen(swipe,isOpen,focusDelete=false){
+    if(!swipe)return;
+
+    const card=swipe.querySelector('[data-owner-product-card]');
+    const deleteButton=swipe.querySelector('[data-owner-delete-product]');
+
+    card?.classList.remove('is-swipe-dragging');
+    card?.style.removeProperty('transform');
+
+    swipe.classList.toggle('is-delete-revealed',isOpen);
+
+    if(deleteButton){
+      deleteButton.disabled=!isOpen;
+      deleteButton.tabIndex=isOpen?0:-1;
+      deleteButton.setAttribute('aria-hidden',isOpen?'false':'true');
+
+      if(isOpen&&focusDelete){
+        deleteButton.focus({preventScroll:true});
+      }
+    }
+  }
+
+  function closeOwnerProductSwipeCards(except=null){
+    document
+      .querySelectorAll('[data-owner-product-swipe].is-delete-revealed')
+      .forEach(swipe=>{
+        if(swipe!==except){
+          setOwnerProductSwipeOpen(swipe,false);
+        }
+      });
+  }
+
+  function dismissOwnerProductActionsSheet(dialog){
+    if(!dialog||dialog.dataset.ownerSheetClosing==='1')return;
+
+    const backdrop=dialog.closest('[data-modal-backdrop]');
+    dialog.dataset.ownerSheetClosing='1';
+
+    const finish=event=>{
+      if(
+        event &&
+        (event.target!==dialog||event.propertyName!=='transform')
+      )return;
+
+      dialog.removeEventListener('transitionend',finish);
+      window.JYYRModal.close();
+    };
+
+    dialog.addEventListener('transitionend',finish);
+    dialog.style.transition='transform .22s cubic-bezier(.4,0,.2,1)';
+
+    if(backdrop){
+      backdrop.style.transition='background .22s ease';
+    }
+
+    requestAnimationFrame(()=>{
+      dialog.style.transform='translate3d(0,100%,0)';
+
+      if(backdrop){
+        backdrop.style.background='rgba(0,0,0,0)';
+      }
+    });
+  }
+
+  function openOwnerProductActionsSheet(card){
+    const template=card.querySelector(
+      'template[data-owner-product-actions]'
+    );
+
+    if(!template||!template.innerHTML.trim())return;
+
+    closeOwnerProductSwipeCards();
+
+    const name=
+      card.dataset.ownerProductName||
+      card.querySelector('.owner-product-card-title')?.textContent||
+      'Produk';
+
+    window.JYYRModal.open(`
+      <div class="owner-product-sheet-content">
+        <button
+          class="owner-product-sheet-handle"
+          type="button"
+          data-owner-product-sheet-handle
+          aria-label="Tarik ke bawah atau ketuk untuk menutup"
+        ><span aria-hidden="true"></span></button>
+
+        <h2 class="owner-product-sheet-title">${esc(name)}</h2>
+
+        ${template.innerHTML}
+      </div>
+    `,'owner-product-actions-sheet');
+
+    const dialog=document.querySelector(
+      '#modal-root .owner-product-actions-sheet'
+    );
+    const handle=dialog?.querySelector(
+      '[data-owner-product-sheet-handle]'
+    );
+
+    if(!dialog||!handle)return;
+
+    const backdrop=dialog.closest('[data-modal-backdrop]');
+    backdrop?.classList.add('owner-product-actions-backdrop');
+    let startY=null;
+    let moved=false;
+
+    const restoreSheet=()=>{
+      dialog.style.transition='transform .22s cubic-bezier(.22,1,.36,1)';
+      dialog.style.transform='translate3d(0,0,0)';
+
+      if(backdrop){
+        backdrop.style.transition='background .22s ease';
+        backdrop.style.background='';
+      }
+    };
+
+    handle.addEventListener('pointerdown',event=>{
+      if(event.button!==0)return;
+
+      startY=event.clientY;
+      moved=false;
+      dialog.style.transition='none';
+      handle.setPointerCapture(event.pointerId);
+    });
+
+    handle.addEventListener('pointermove',event=>{
+      if(startY===null)return;
+
+      const distance=Math.max(0,event.clientY-startY);
+
+      if(distance>6)moved=true;
+
+      dialog.style.transform=`translate3d(0,${distance}px,0)`;
+
+      if(backdrop){
+        const progress=Math.min(
+          1,
+          distance/Math.max(1,dialog.offsetHeight)
+        );
+        backdrop.style.background=
+          `rgba(0,0,0,${.76*(1-progress)})`;
+      }
+    });
+
+    handle.addEventListener('pointerup',event=>{
+      if(startY===null)return;
+
+      const distance=Math.max(0,event.clientY-startY);
+      startY=null;
+
+      if(moved){
+        handle.dataset.ownerProductSheetDragged='1';
+      }
+
+      if(distance>=72){
+        dismissOwnerProductActionsSheet(dialog);
+      }else{
+        restoreSheet();
+      }
+    });
+
+    handle.addEventListener('pointercancel',()=>{
+      if(startY===null)return;
+      startY=null;
+      restoreSheet();
+    });
+
+    handle.addEventListener('click',event=>{
+      if(handle.dataset.ownerProductSheetDragged==='1'){
+        delete handle.dataset.ownerProductSheetDragged;
+        event.preventDefault();
+        return;
+      }
+
+      dismissOwnerProductActionsSheet(dialog);
+    });
+  }
+
+  if(document.querySelector('[data-owner-product-swipe]')){
+    document.addEventListener('pointerdown',event=>{
+      if(event.button!==0)return;
+
+      const card=event.target.closest('[data-owner-product-card]');
+      if(!card)return;
+
+      if(
+        event.target.closest(
+          'button,a,input,textarea,select,[contenteditable="true"]'
+        )
+      )return;
+
+      const swipe=card.closest('[data-owner-product-swipe]');
+      if(!swipe)return;
+
+      closeOwnerProductSwipeCards(swipe);
+
+      const isOpen=swipe.classList.contains('is-delete-revealed');
+      const offset=isOpen?-OWNER_PRODUCT_DELETE_REVEAL:0;
+
+      ownerProductSwipeGesture={
+        card,
+        swipe,
+        pointerId:event.pointerId,
+        startX:event.clientX,
+        startY:event.clientY,
+        baseX:offset,
+        currentX:offset,
+        horizontal:false
+      };
+    });
+
+    document.addEventListener('pointermove',event=>{
+      const gesture=ownerProductSwipeGesture;
+
+      if(!gesture||event.pointerId!==gesture.pointerId)return;
+
+      const deltaX=event.clientX-gesture.startX;
+      const deltaY=event.clientY-gesture.startY;
+
+      if(!gesture.horizontal){
+        if(Math.abs(deltaX)<8&&Math.abs(deltaY)<8)return;
+
+        if(Math.abs(deltaY)>=Math.abs(deltaX)){
+          ownerProductSwipeGesture=null;
+          return;
+        }
+
+        gesture.horizontal=true;
+      }
+
+      gesture.currentX=Math.min(
+        0,
+        Math.max(
+          -OWNER_PRODUCT_DELETE_REVEAL,
+          gesture.baseX+deltaX
+        )
+      );
+
+      gesture.card.classList.add('is-swipe-dragging');
+      gesture.card.style.transform=
+        `translate3d(${gesture.currentX}px,0,0)`;
+    });
+
+    const finishOwnerProductSwipe=(event,cancelled=false)=>{
+      const gesture=ownerProductSwipeGesture;
+
+      if(!gesture||event.pointerId!==gesture.pointerId)return;
+
+      ownerProductSwipeGesture=null;
+
+      if(!gesture.horizontal)return;
+
+      if(!cancelled){
+        ownerProductIgnoreCardClickUntil=Date.now()+500;
+      }
+
+      const shouldOpen=cancelled
+        ? gesture.baseX<=-OWNER_PRODUCT_DELETE_REVEAL/2
+        : gesture.currentX<=-OWNER_PRODUCT_DELETE_REVEAL/2;
+
+      setOwnerProductSwipeOpen(gesture.swipe,shouldOpen);
+    };
+
+    document.addEventListener('pointerup',event=>{
+      finishOwnerProductSwipe(event,false);
+    });
+
+    document.addEventListener('pointercancel',event=>{
+      finishOwnerProductSwipe(event,true);
+    });
+  }
+
+  document.addEventListener('click',event=>{
+    if(event.target.closest('[data-owner-delete-product]'))return;
+    if(event.target.closest('#modal-root'))return;
+
+    const card=event.target.closest('[data-owner-product-card]');
+
+    if(!card){
+      closeOwnerProductSwipeCards();
+      return;
+    }
+
+    if(Date.now()<ownerProductIgnoreCardClickUntil){
+      ownerProductIgnoreCardClickUntil=0;
+      event.preventDefault();
+      return;
+    }
+
+    if(
+      event.target.closest(
+        'button,a,input,textarea,select,[contenteditable="true"]'
+      )
+    )return;
+
+    const swipe=card.closest('[data-owner-product-swipe]');
+    if(!swipe)return;
+
+    if(swipe.classList.contains('is-delete-revealed')){
+      setOwnerProductSwipeOpen(swipe,false);
+      return;
+    }
+
+    closeOwnerProductSwipeCards(swipe);
+    openOwnerProductActionsSheet(card);
+  });
+
+  document.addEventListener('keydown',event=>{
+    const swipe=event.target.closest('[data-owner-product-swipe]');
+    if(!swipe)return;
+
+    const card=swipe.querySelector('[data-owner-product-card]');
+    if(!card)return;
+
+    if(
+      event.key==='Escape'&&
+      swipe.classList.contains('is-delete-revealed')
+    ){
+      event.preventDefault();
+      setOwnerProductSwipeOpen(swipe,false);
+      card.focus();
+      return;
+    }
+
+    if(event.target!==card)return;
+
+    if(event.key==='ArrowLeft'){
+      event.preventDefault();
+      closeOwnerProductSwipeCards(swipe);
+      setOwnerProductSwipeOpen(swipe,true,true);
+      return;
+    }
+
+    if(event.key==='Enter'||event.key===' '){
+      event.preventDefault();
+      openOwnerProductActionsSheet(card);
+    }
+  });
+
   document.addEventListener('click',async e=>{
     const editorBack=e.target.closest('[data-owner-editor-back]');
     if(editorBack){

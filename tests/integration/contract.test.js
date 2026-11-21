@@ -81,6 +81,35 @@ test('light theme separates interactive controls from card surfaces',()=>{
   );
 });
 
+test('owner order status bar track uses a raised surface distinct from cards',()=>{
+  const variables=fs.readFileSync(
+    path.join(root,'public/css/variables.css'),
+    'utf8'
+  );
+  const store=fs.readFileSync(
+    path.join(root,'public/css/store.css'),
+    'utf8'
+  );
+
+  const dark=variables.match(/:root\{([^}]*)\}/)?.[1];
+  const light=variables.match(/:root\[data-theme="light"\]\{([^}]*)\}/)?.[1];
+  const bar=store.match(/\.status-bars \.bar\{([^}]*)\}/)?.[1];
+
+  assert.ok(dark&&light&&bar,'theme tokens and status bar styles must exist');
+
+  for(const theme of [dark,light]){
+    const surface=theme.match(/--surface:([^;]+);/)?.[1];
+    const raised=theme.match(/--surface-raised:([^;]+);/)?.[1];
+
+    assert.ok(
+      surface&&raised&&surface!==raised,
+      'status bar track must differ from card surface'
+    );
+  }
+
+  assert.match(bar,/background:var\(--surface-raised\);/);
+});
+
 test('customer page titles use consistent contextual icons',()=>{
   const registry=fs.readFileSync(
     path.join(root,'src/utils/icons.js'),'utf8'
@@ -2458,6 +2487,161 @@ test('owner product and variant push controls preserve manual position ordering'
   assert.ok(browser.includes('productVariantPushUpCount'));
   assert.ok(responsive.includes('owner-product-card-heading'));
   assert.ok(pageCss.includes('owner-product-variant-name-control'));
+});
+
+test('owner product cards use a compact cover layout and swipe actions',()=>{
+  const owner=fs.readFileSync(
+    path.join(root,'views/owner/index.ejs'),
+    'utf8'
+  );
+  const browser=fs.readFileSync(
+    path.join(root,'public/js/pages.js'),
+    'utf8'
+  );
+  const responsive=fs.readFileSync(
+    path.join(root,'public/css/responsive.css'),
+    'utf8'
+  );
+
+  const start=owner.indexOf('class="owner-product-card-grid"');
+  const end=owner.indexOf(
+    '\n            </div>\n          <% } %>',
+    start
+  );
+
+  assert.ok(start>=0&&end>start,'Markup kartu Owner harus tersedia.');
+
+  const markup=owner.slice(start,end);
+
+  assert.match(markup,/data-owner-product-card/);
+  assert.match(markup,/assetUrl\(publicAssetBucket,row\.thumbnail_path\)/);
+  assert.doesNotMatch(markup,/<%= row\.slug %>/);
+  assert.match(markup,/aria-keyshortcuts="Enter Space ArrowLeft"/);
+  assert.match(markup,/data-owner-product-actions/);
+  assert.match(markup,/data-owner-delete-product/);
+
+  for(const metric of ['Kategori','Status','Harga','Stock']){
+    assert.ok(
+      !markup.includes(`<span>${metric}</span>`),
+      `Label ${metric} tidak boleh ditampilkan.`
+    );
+    assert.ok(
+      markup.includes(`role="group" aria-label="${metric}"`),
+      `Nama aksesibel ${metric} harus tetap tersedia.`
+    );
+  }
+
+  assert.match(browser,/function openOwnerProductActionsSheet\(card\)/);
+  assert.match(browser,/template\.innerHTML/);
+  assert.match(browser,/owner-product-actions-sheet/);
+  assert.match(browser,/data-owner-product-sheet-handle/);
+  assert.match(browser,/OWNER_PRODUCT_DELETE_REVEAL/);
+  assert.match(browser,/setPointerCapture/);
+
+  assert.match(responsive,/\.owner-product-card-cover/);
+  assert.match(responsive,/\.owner-product-card-delete/);
+  assert.match(responsive,/\.owner-product-card-swipe\.is-delete-revealed/);
+  assert.match(responsive,/\.modal\.owner-product-actions-sheet/);
+  assert.match(responsive,/@keyframes owner-product-sheet-enter/);
+});
+
+
+
+test('owner product card aligns category and price below title with a compact push button',()=>{
+  const responsive=fs.readFileSync(
+    path.join(root,'public/css/responsive.css'),
+    'utf8'
+  );
+
+  assert.match(
+    responsive,
+    /\.owner-product-card-content\{[\s\S]*?justify-content:flex-start;[\s\S]*?gap:8px;/
+  );
+
+  assert.match(
+    responsive,
+    /\.owner-product-card-metric>strong\{[\s\S]*?justify-content:flex-start;[\s\S]*?text-align:left;/
+  );
+
+  assert.match(
+    responsive,
+    /\.owner-product-card-metric:nth-child\(even\)>strong\{[\s\S]*?justify-content:flex-end;[\s\S]*?text-align:right;/
+  );
+
+  assert.match(
+    responsive,
+    /\.owner-product-card-metric \.category-name-with-icon\{[\s\S]*?justify-content:flex-start;/
+  );
+
+  assert.match(
+    responsive,
+    /\.owner-product-push\{[\s\S]*?flex:0 0 30px;[\s\S]*?width:30px;[\s\S]*?height:30px;/
+  );
+
+  assert.match(
+    responsive,
+    /\.owner-product-push \.icon\{[\s\S]*?width:15px;[\s\S]*?height:15px;/
+  );
+});
+
+
+test('owner product action sheet enters smoothly without conflicting with drag',()=>{
+  const responsive=fs.readFileSync(
+    path.join(root,'public/css/responsive.css'),
+    'utf8'
+  );
+  const browser=fs.readFileSync(
+    path.join(root,'public/js/pages.js'),
+    'utf8'
+  );
+  const sharedCss=fs.readFileSync(
+    path.join(root,'public/css/components.css'),
+    'utf8'
+  );
+  const modal=fs.readFileSync(
+    path.join(root,'public/js/modal.js'),
+    'utf8'
+  );
+
+  assert.match(
+    responsive,
+    /^\.modal\.owner-product-actions-sheet\{[\s\S]*?animation:owner-product-sheet-enter 280ms cubic-bezier\(\.22,\.61,\.36,1\) both;/m
+  );
+
+  assert.match(
+    responsive,
+    /@keyframes owner-product-sheet-enter\{\s*from\{\s*translate:0 24px;\s*opacity:\.96;\s*\}\s*to\{\s*translate:0 0;\s*opacity:1;\s*\}\s*\}/
+  );
+
+  assert.match(
+    responsive,
+    /^\.modal-backdrop\.owner-product-actions-backdrop\{\s*animation:owner-product-backdrop-enter 220ms ease-out both;/m
+  );
+
+  assert.match(
+    responsive,
+    /@keyframes owner-product-backdrop-enter\{[\s\S]*?background:rgba\(0,0,0,0\);[\s\S]*?background:rgba\(0,0,0,\.76\);/
+  );
+
+  assert.match(
+    browser,
+    /backdrop\?\.classList\.add\('owner-product-actions-backdrop'\);/
+  );
+
+  assert.doesNotMatch(
+    sharedCss,
+    /owner-product-actions-(?:sheet|backdrop)/
+  );
+
+  assert.doesNotMatch(
+    modal,
+    /owner-product-actions-(?:sheet|backdrop)/
+  );
+
+  assert.match(
+    modal,
+    /@media \(prefers-reduced-motion: reduce\)/
+  );
 });
 
 test('owner variant icons remain separate from the product cover',()=>{

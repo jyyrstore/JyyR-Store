@@ -313,62 +313,121 @@
           <% } else { %>
             <div class="owner-product-card-grid">
               <% (items||[]).forEach(row=>{ %>
-                <article class="owner-product-card">
-                  <div class="owner-product-card-heading">
-                    <h3 class="owner-product-card-title"><%= row.name %></h3>
-                    <button
-                      class="icon-button owner-product-push"
-                      type="button"
-                      data-owner-product-push="<%= row.id %>"
-                      aria-label="Naikkan posisi produk"
-                      title="Naikkan posisi produk"
-                    ><%- icon('upload','icon') %></button>
-                  </div>
+                <div class="owner-product-card-swipe" data-owner-product-swipe>
+                  <button
+                    class="owner-product-card-delete"
+                    type="button"
+                    data-owner-delete-product="<%= row.id %>"
+                    data-owner-delete-status="<%= row.status %>"
+                    aria-label="<%= row.status==='ARCHIVED'?'Hapus permanen':'Hapus' %> <%= row.name %>"
+                    aria-hidden="true"
+                    tabindex="-1"
+                    disabled
+                  >
+                    <%- icon('trash') %>
+                    <span><%= row.status==='ARCHIVED'?'Hapus Permanen':'Hapus' %></span>
+                  </button>
 
-                  <div class="owner-product-card-details">
-                    <div class="owner-product-card-metric-group">
-                      <div class="owner-product-card-metric-labels">
-                        <span>Kategori</span>
-                        <span>Slug</span>
-                        <span>Harga</span>
+                  <article
+                    class="owner-product-card"
+                    role="group"
+                    tabindex="0"
+                    data-owner-product-card
+                    data-owner-product-name="<%= row.name %>"
+                    aria-label="Produk <%= row.name %>. Tekan Enter untuk membuka menu, geser ke kiri untuk menghapus."
+                    aria-keyshortcuts="Enter Space ArrowLeft"
+                  >
+                    <div class="owner-product-card-main">
+                      <div class="owner-product-card-cover">
+                        <% if(row.thumbnail_path){ %>
+                          <img
+                            src="<%= assetUrl(publicAssetBucket,row.thumbnail_path) %>"
+                            alt="Cover <%= row.name %>"
+                            loading="lazy"
+                          >
+                        <% } else { %>
+                          <div class="owner-product-card-cover-fallback" aria-hidden="true">
+                            <%- icon('shop-twotone') %>
+                          </div>
+                        <% } %>
                       </div>
-                      <div class="owner-product-card-metric-values">
-                        <strong><% if(row.category_name){ %><span class="category-name-with-icon"><%- icon(row.category_icon_key||'category-management','icon category-inline-icon') %><span><%= row.category_name %></span></span><% }else{ %>—<% } %></strong>
-                        <strong><%= row.slug %></strong>
-                        <strong><%= formatIDR(row.price) %></strong>
+
+                      <div class="owner-product-card-content">
+                        <div class="owner-product-card-heading">
+                          <h3 class="owner-product-card-title"><%= row.name %></h3>
+                          <button
+                            class="icon-button owner-product-push"
+                            type="button"
+                            data-owner-product-push="<%= row.id %>"
+                            aria-label="Naikkan posisi produk"
+                            title="Naikkan posisi produk"
+                          ><%- icon('upload','icon') %></button>
+                        </div>
+
+                        <div class="owner-product-card-metrics">
+                          <div class="owner-product-card-metric" role="group" aria-label="Kategori">
+                            <strong>
+                              <% if(row.category_name){ %>
+                                <span class="category-name-with-icon">
+                                  <%- icon(row.category_icon_key||'category-management','icon category-inline-icon') %>
+                                  <span><%= row.category_name %></span>
+                                </span>
+                              <% }else{ %>
+                                —
+                              <% } %>
+                            </strong>
+                          </div>
+
+                          <div class="owner-product-card-metric" role="group" aria-label="Status">
+                            <strong><%= Number(row.stock)>0?'Tersedia':'Habis' %></strong>
+                          </div>
+
+                          <div class="owner-product-card-metric" role="group" aria-label="Harga">
+                            <strong><%= formatIDR(row.price) %></strong>
+                          </div>
+
+                          <div class="owner-product-card-metric" role="group" aria-label="Stock">
+                            <strong><%= row.stock %></strong>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div class="owner-product-card-metric-group">
-                      <div class="owner-product-card-metric-labels">
-                        <span>Stock</span>
-                        <span>Content</span>
-                        <span>Status</span>
-                      </div>
-                      <div class="owner-product-card-metric-values">
-                        <strong><%= row.stock %></strong>
-                        <strong><%= row.content_count||0 %></strong>
-                        <strong><%= Number(row.stock) > 0 ? 'Tersedia' : 'Habis' %></strong>
-                      </div>
-                    </div>
-                  </div>
+                    <template data-owner-product-actions>
+                      <div class="owner-product-card-actions">
+                        <button
+                          class="button button-secondary button-small"
+                          data-owner-edit-product='<%- JSON.stringify({...row,thumbnail_url:row.thumbnail_path?assetUrl(publicAssetBucket,row.thumbnail_path):null,variants:(row.variants||[]).map(v=>({...v,icon_url:v.icon_path?assetUrl(publicAssetBucket,v.icon_path):null}))}).replace(/'/g,"&#39;") %>'
+                        >Edit</button>
 
-                  <div class="owner-product-card-actions">
-                    <button class="button button-secondary button-small" data-owner-edit-product='<%- JSON.stringify({...row,thumbnail_url:row.thumbnail_path?assetUrl(publicAssetBucket,row.thumbnail_path):null,variants:(row.variants||[]).map(v=>({...v,icon_url:v.icon_path?assetUrl(publicAssetBucket,v.icon_path):null}))}).replace(/'/g,"&#39;") %>'>Edit</button>
-                    <button class="button button-secondary button-small"
-                      data-owner-content="<%= row.id %>"
-                      data-owner-product-name="<%- row.name.replace(/"/g,'&quot;') %>"
-                      data-owner-product-status="<%= row.status %>"
-                      data-owner-has-thumbnail="<%= row.thumbnail_path ? '1' : '0' %>">Konten & Publikasi</button>
-                    <% if(row.status==='PUBLISHED'){ %>
-                      <button class="button button-secondary button-small" data-owner-unpublish="<%= row.id %>">Batalkan Publikasi</button>
-                    <% } else if(row.status!=='ARCHIVED'){ %>
-                      <button class="button button-success button-small" data-owner-publish="<%= row.id %>">Publikasikan</button>
-                    <% } %>
-                    <button class="button button-secondary button-small" data-owner-duplicate="<%= row.id %>">Duplikat</button>
-                    <button class="button button-danger button-small" data-owner-delete-product="<%= row.id %>" data-owner-delete-status="<%= row.status %>"><%- icon('trash') %><%= row.status==='ARCHIVED'?'Hapus Permanen':'Hapus' %></button>
-                  </div>
-                </article>
+                        <button
+                          class="button button-secondary button-small"
+                          data-owner-duplicate="<%= row.id %>"
+                        >Duplikat</button>
+
+                        <% if(row.status==='PUBLISHED'){ %>
+                          <button
+                            class="button button-secondary button-small"
+                            data-owner-unpublish="<%= row.id %>"
+                          >Unpublish</button>
+                        <% } else if(row.status!=='ARCHIVED'){ %>
+                          <button
+                            class="button button-success button-small"
+                            data-owner-publish="<%= row.id %>"
+                          >Publish</button>
+                        <% } %>
+
+                        <button
+                          class="button button-secondary button-small"
+                          data-owner-content="<%= row.id %>"
+                          data-owner-product-name="<%- row.name.replace(/"/g,'&quot;') %>"
+                          data-owner-product-status="<%= row.status %>"
+                          data-owner-has-thumbnail="<%= row.thumbnail_path?'1':'0' %>"
+                        >Content &amp; Publish</button>
+                      </div>
+                    </template>
+                  </article>
+                </div>
               <% }) %>
             </div>
           <% } %>
