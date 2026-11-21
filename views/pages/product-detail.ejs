@@ -242,12 +242,6 @@
         </section>
       <% } %>
 
-      <div class="detail-actions" aria-label="Aksi produk">
-        <% if(currentUser && product.stock>0){ %>
-          <button class="button button-secondary" data-add-cart="<%= product.id %>"><%- icon('cart') %> Keranjang</button>
-          <button class="button button-primary" data-buy-now="<%= product.id %>"><%- icon('check') %> Beli Sekarang</button>
-        <% } else if (!currentUser){ %><a class="button button-primary" href="/auth/login?next=<%= encodeURIComponent(req.originalUrl) %>">Masuk untuk membeli</a><% } %>
-      </div>
       <div class="security-note">
         <%- icon('shield-key-outline') %>
         <div>
@@ -339,8 +333,8 @@
 
   <div class="product-detail-info-cta">
     <p>
-      Lihat produk lain di kategori
-      <a class="product-detail-category-link" href="#product-category-title">Kategori Produk</a>.
+      Lihat kategori dan produk lainnya di
+      <a class="product-detail-category-link" href="/store">Store</a>.
     </p>
   </div>
 </section>
@@ -587,52 +581,30 @@
 
 
 
-    <section
-      class="section product-detail-recommendations"
-      aria-labelledby="product-category-title"
-    >
-      <div class="section-header">
-        <div>
-          <h2 id="product-category-title">Jelajahi Kategori</h2>
-          <p>Pilih kategori untuk melihat lebih banyak produk.</p>
-        </div>
+  <% if((currentUser && product.stock>0) || !currentUser){ %>
+    <details class="product-purchase-sheet" data-product-purchase-sheet open>
+      <summary
+        class="product-purchase-sheet-handle"
+        data-product-purchase-sheet-handle
+        aria-label="Tutup panel aksi pembelian"
+        aria-controls="product-purchase-sheet-actions"
+        aria-expanded="true"
+      >
+        <span class="product-purchase-sheet-handle-bar" aria-hidden="true"></span>
+      </summary>
+      <div
+        class="product-purchase-sheet-actions"
+        id="product-purchase-sheet-actions"
+        aria-label="Aksi produk"
+      >
+        <% if(currentUser && product.stock>0){ %>
+          <button type="button" class="button button-secondary" data-add-cart="<%= product.id %>"><%- icon('cart') %> Keranjang</button>
+          <button type="button" class="button button-primary" data-buy-now="<%= product.id %>"><%- icon('check') %> Beli Sekarang</button>
+        <% } else if (!currentUser){ %>
+          <a class="button button-primary" href="/auth/login?next=<%= encodeURIComponent(req.originalUrl) %>">Masuk untuk membeli</a>
+        <% } %>
       </div>
+    </details>
+  <% } %>
 
-      <% if(categoryList.length){ %>
-
-        <div class="category-grid product-detail-category-grid">
-
-          <% categoryList.forEach(category=>{ %>
-
-            <a
-              class="category-card"
-              href="/store?category=<%= encodeURIComponent(category.slug) %>"
-            >
-              <span class="category-card__content">
-
-                <strong class="category-card__name"><span class="category-name-with-icon"><%- icon(category.icon_key||'category-management','icon category-inline-icon') %><span><%= category.name %></span></span></strong>
-
-                <% if(category.description){ %>
-                  <span class="category-card__description">
-                    <%= category.description %>
-                  </span>
-                <% } %>
-
-              </span>
-            </a>
-
-          <% }) %>
-
-        </div>
-
-      <% } else { %>
-
-        <%- include('../partials/empty',{
-          title:'Belum ada kategori',
-          description:'Kategori produk akan muncul di sini.'
-        }) %>
-
-      <% } %>
-
-    </section>
 </section>

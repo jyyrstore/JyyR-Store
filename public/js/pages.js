@@ -3,6 +3,16 @@
   const money=v=>window.JYYR.formatIDR(v), esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const csrf=()=>window.JYYR?.csrf||'';
 
+  window.addEventListener('pageshow',event=>{
+    if(!event.persisted)return;
+
+    document
+      .querySelectorAll('[data-buy-now]:disabled')
+      .forEach(button=>{
+        button.disabled=false;
+      });
+  });
+
   function beginIdempotentAction(scope,identity){
     const storageKey=
       'jyyr:idempotency:'+scope+':'+encodeURIComponent(String(identity));
@@ -5581,6 +5591,90 @@ function closeProductImageModal(direction){
     ()=>window.JYYRModal?.close(),
     {once:true}
   );
+}
+
+/* PRODUCT DETAIL PURCHASE SHEET HANDLE */
+const productPurchaseSheet=document.querySelector(
+  '[data-product-purchase-sheet]'
+);
+
+if(productPurchaseSheet){
+  const handle=productPurchaseSheet.querySelector(
+    '[data-product-purchase-sheet-handle]'
+  );
+
+  if(handle){
+    let gesture=null;
+    let suppressClick=false;
+
+    const syncHandleState=()=>{
+      handle.setAttribute(
+        'aria-label',
+        productPurchaseSheet.open
+          ?'Tutup panel aksi pembelian'
+          :'Buka panel aksi pembelian'
+      );
+      handle.setAttribute(
+        'aria-expanded',
+        String(productPurchaseSheet.open)
+      );
+    };
+
+    syncHandleState();
+    productPurchaseSheet.addEventListener('toggle',syncHandleState);
+
+    handle.addEventListener('pointerdown',event=>{
+      if(!event.isPrimary)return;
+
+      gesture={
+        pointerId:event.pointerId,
+        startX:event.clientX,
+        startY:event.clientY
+      };
+
+      if(typeof handle.setPointerCapture==='function'){
+        try{
+          handle.setPointerCapture(event.pointerId);
+        }catch{
+          // Pointer capture tidak wajib untuk gesture.
+        }
+      }
+    });
+
+    handle.addEventListener('pointerup',event=>{
+      if(!gesture||gesture.pointerId!==event.pointerId)return;
+
+      const deltaX=event.clientX-gesture.startX;
+      const deltaY=event.clientY-gesture.startY;
+      gesture=null;
+
+      if(
+        Math.abs(deltaY)<36 ||
+        Math.abs(deltaY)<Math.abs(deltaX)*1.2
+      )return;
+
+      productPurchaseSheet.open=deltaY<0;
+      suppressClick=true;
+
+      window.setTimeout(()=>{
+        suppressClick=false;
+      },0);
+    });
+
+    handle.addEventListener('pointercancel',event=>{
+      if(gesture?.pointerId===event.pointerId){
+        gesture=null;
+      }
+    });
+
+    handle.addEventListener('click',event=>{
+      if(!suppressClick)return;
+
+      suppressClick=false;
+      event.preventDefault();
+      event.stopPropagation();
+    });
+  }
 }
 
 /* PRODUCT DETAIL IMAGE VARIANT SWIPE */

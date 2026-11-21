@@ -1331,7 +1331,11 @@ test('category and subcategory icons render across product surfaces',()=>{
   assert.ok(storeView.includes("icon(c.icon_key||'category-management'"));
 
   assert.ok(detailView.includes("product.category_parent_icon_key||product.category_icon_key||'category-management'"));
-  assert.ok(detailView.includes("icon(category.icon_key||'category-management'"));
+  assert.ok(detailView.includes("icon(product.category_parent_icon_key||product.category_icon_key||'category-management'"));
+  assert.doesNotMatch(
+    detailView,
+    /Jelajahi Kategori|product-detail-category-grid|product-category-title/
+  );
 
   assert.ok(ownerView.includes("icon(row.icon_key||'category-management'"));
   assert.ok(ownerView.includes("icon(subcategory.icon_key||'category-management'"));

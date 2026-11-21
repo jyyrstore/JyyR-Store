@@ -120,8 +120,7 @@ async function productDetail(req,res,next){
       reviewsTotal,
       reviewSummary,
       relatedData,
-      bestSellerData,
-      categoryList
+      bestSellerData
     ]=await Promise.all([
       productReviews.listForProduct(
         product.id,
@@ -140,8 +139,7 @@ async function productDetail(req,res,next){
       products.catalog({
         sort:'popular',
         limit:6
-      }),
-      categories.list(true)
+      })
     ]);
 
     if(req.user?.id){
@@ -194,8 +192,7 @@ async function productDetail(req,res,next){
           reviewPager.limit
         ),
         relatedProducts,
-        bestSellerProducts,
-        categoryList
+        bestSellerProducts
       })
     );
   }catch(e){
