@@ -204,9 +204,14 @@
 
       <% } else if(ownerSection==='provider-products'){ %>
         <div class="stack-form">
-          <form class="toolbar panel" method="get" action="/owner/provider-products">
-            <label class="field">
-              <span>Tipe katalog</span>
+          <div class="toolbar panel">
+            <form
+              class="owner-filter-bar"
+              method="get"
+              action="/owner/provider-products"
+            >
+            <label class="owner-filter-field owner-filter-status">
+              <span class="owner-filter-label">Tipe katalog</span>
               <div class="jyyr-select" data-jyyr-select>
                 <input
                   type="hidden"
@@ -221,66 +226,414 @@
                   aria-expanded="false"
                   data-jyyr-select-trigger
                 >
-                  <span data-jyyr-select-label><%= providerType==='game'?'Game':'Aplikasi Premium' %></span>
+                  <span data-jyyr-select-label>
+                    <%= providerType==='game'?'Game':'Aplikasi Premium' %>
+                  </span>
                   <span class="jyyr-select-chevron" aria-hidden="true"></span>
                 </button>
                 <div class="jyyr-select-menu" role="listbox" data-jyyr-select-menu>
-                  <button type="button" class="jyyr-select-option" role="option" data-jyyr-select-option data-value="digital" data-label="Aplikasi Premium">Aplikasi Premium</button>
-                  <button type="button" class="jyyr-select-option" role="option" data-jyyr-select-option data-value="game" data-label="Game">Game</button>
+                  <button
+                    type="button"
+                    class="jyyr-select-option"
+                    role="option"
+                    data-jyyr-select-option
+                    data-value="digital"
+                    data-label="Aplikasi Premium"
+                  >Aplikasi Premium</button>
+                  <button
+                    type="button"
+                    class="jyyr-select-option"
+                    role="option"
+                    data-jyyr-select-option
+                    data-value="game"
+                    data-label="Game"
+                  >Game</button>
                 </div>
               </div>
             </label>
-            <label class="field">
-              <span>Cari produk</span>
-              <input
-                name="search"
-                value="<%= providerSearch %>"
-                placeholder="Nama produk atau ID provider"
-                autocomplete="off"
-              >
-            </label>
-            <button class="button button-primary" type="submit">Terapkan</button>
-          </form>
 
-          <section class="panel table-panel">
-            <h2>Daftar Produk Provider</h2>
-            <div class="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Produk</th>
-                    <th>Kategori</th>
-                    <th>Varian tampil</th>
-                    <th>Harga mulai</th>
-                    <th>Status</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% (providerProducts||[]).forEach(product=>{ %>
-                    <tr>
-                      <td data-label="Produk">
-                        <strong><%= product.display_name %></strong>
-                        <small class="muted"><%= product.provider_product_id %></small>
-                      </td>
-                      <td data-label="Kategori"><%= product.category_name %></td>
-                      <td data-label="Varian tampil"><%= product.visible_variant_count %> / <%= product.variant_count %></td>
-                      <td data-label="Harga mulai"><%= product.minimum_retail_price===null?'—':formatIDR(product.minimum_retail_price) %></td>
-                      <td data-label="Status"><%= product.is_visible?'Tampil':'Disembunyikan' %></td>
-                      <td data-label="Aksi">
-                        <a
-                          class="button button-secondary button-small"
-                          href="/owner/provider-products?type=<%= encodeURIComponent(providerType) %>&product=<%= encodeURIComponent(product.provider_product_id) %>"
-                        >Edit</a>
-                      </td>
-                    </tr>
-                  <% }) %>
-                </tbody>
-              </table>
+            <label class="owner-filter-field owner-filter-search">
+              <span class="owner-filter-label">Cari produk</span>
+              <span class="owner-filter-input-wrap">
+                <%- icon('search') %>
+                <input
+                  type="text"
+                  name="search"
+                  value="<%= providerSearch %>"
+                  placeholder="Cari nama produk atau ID provider"
+                  autocomplete="off"
+                  spellcheck="false"
+                  aria-label="Cari produk provider"
+                >
+              </span>
+            </label>
+
+            <button
+              class="button button-primary owner-filter-submit"
+              type="submit"
+            >
+              <%- icon('search') %>
+              <span>Filter</span>
+            </button>
+            </form>
+          </div>
+
+          <% if(providerProduct){ %>
+            <form
+              class="panel stack-form"
+              data-provider-product-form
+              data-provider-type="<%= providerType %>"
+              data-product-id="<%= providerProduct.provider_product_id %>"
+            >
+              <div class="section-header">
+                <div>
+                  <div class="eyebrow">Pengaturan provider</div>
+                  <h2>Edit <%= providerProduct.display_name %></h2>
+                  <p class="muted">
+                    ID provider: <%= providerProduct.provider_product_id %>
+                  </p>
+                </div>
+              </div>
+
+              <section class="stack-form">
+                <div>
+                  <h3>1. Identitas dan tampilan toko</h3>
+                  <p class="muted">
+                    Atur nama yang dilihat pelanggan, kategori, urutan produk,
+                    serta apakah produk ditampilkan di toko.
+                  </p>
+                </div>
+
+                <div class="form-grid">
+                  <label class="field">
+                    <span>Nama tampilan</span>
+                    <input
+                      name="displayName"
+                      value="<%= providerProduct.display_name %>"
+                      required
+                      minlength="2"
+                      maxlength="160"
+                    >
+                  </label>
+
+                  <label class="field">
+                    <span>Kategori tampilan</span>
+                    <div class="jyyr-select" data-jyyr-select>
+                      <input
+                        type="hidden"
+                        name="categoryKey"
+                        value="<%= providerProduct.category_key %>"
+                        data-jyyr-select-value
+                      >
+                      <button
+                        class="jyyr-select-trigger"
+                        type="button"
+                        aria-haspopup="listbox"
+                        aria-expanded="false"
+                        data-jyyr-select-trigger
+                      >
+                        <span data-jyyr-select-label></span>
+                        <span class="jyyr-select-chevron" aria-hidden="true"></span>
+                      </button>
+                      <div class="jyyr-select-menu" role="listbox" data-jyyr-select-menu>
+                        <% (providerCategories||[]).filter(category=>category.parent_key===providerProduct.category_parent_key).forEach(category=>{ %>
+                          <button
+                            type="button"
+                            class="jyyr-select-option"
+                            role="option"
+                            data-jyyr-select-option
+                            data-value="<%= category.category_key %>"
+                            data-label="<%= category.name %><%= category.is_active?'':' (Nonaktif)' %>"
+                          ><%= category.name %><%= category.is_active?'':' (Nonaktif)' %></button>
+                        <% }) %>
+                      </div>
+                    </div>
+                  </label>
+
+                  <label class="field full">
+                    <span>Urutan produk</span>
+                    <input
+                      name="sortOrder"
+                      type="number"
+                      min="0"
+                      max="100000"
+                      step="1"
+                      value="<%= providerProduct.sort_order %>"
+                      required
+                    >
+                    <small class="muted">
+                      Angka lebih kecil ditampilkan lebih dahulu di dalam kategori.
+                    </small>
+                  </label>
+                </div>
+
+                <label class="switch-row">
+                  <span>Tampilkan produk di toko</span>
+                  <input
+                    name="isVisible"
+                    type="checkbox"
+                    <%= providerProduct.is_visible?'checked':'' %>
+                  >
+                </label>
+              </section>
+
+              <section class="stack-form">
+                <div>
+                  <h3>2. Cover produk</h3>
+                  <p class="muted">
+                    Cover digunakan sebagai gambar utama produk di halaman toko.
+                    Format yang didukung: PNG, JPG, dan WebP.
+                  </p>
+                </div>
+
+                <label class="field">
+                  <span>Gambar cover</span>
+                  <% if(providerProduct.cover_url){ %>
+                    <div class="owner-product-card-cover">
+                      <img
+                        src="<%= providerProduct.cover_url %>"
+                        alt="Cover <%= providerProduct.display_name %>"
+                        loading="lazy"
+                        decoding="async"
+                      >
+                    </div>
+                  <% } %>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    data-provider-cover-file
+                  >
+                  <progress
+                    value="0"
+                    max="100"
+                    hidden
+                    data-provider-cover-progress
+                  ></progress>
+                  <small class="muted" data-provider-cover-status></small>
+                </label>
+              </section>
+
+              <section class="stack-form">
+                <div>
+                  <h3>3. Varian dan harga</h3>
+                  <p class="muted">
+                    Harga modal berasal dari katalog supplier. Isi harga jual
+                    untuk menentukan harga pelanggan. Margin dihitung otomatis
+                    dari harga jual dikurangi harga modal.
+                  </p>
+                </div>
+
+                <% if(!(providerProduct.variants||[]).length){ %>
+                  <div class="empty-state compact">
+                    <h3>Belum ada varian</h3>
+                    <p>Supplier belum menyediakan varian untuk produk ini.</p>
+                  </div>
+                <% } %>
+
+                <% (providerProduct.variants||[]).forEach(variant=>{ %>
+                  <article
+                    class="panel stack-form"
+                    data-provider-variant
+                    data-variant-id="<%= variant.variant_id %>"
+                    data-provider-base-price="<%= variant.base_price %>"
+                  >
+                    <div>
+                      <h4><%= variant.source_name||variant.display_name %></h4>
+                      <small class="muted">
+                        ID varian: <%= variant.variant_id %>
+                      </small>
+                    </div>
+
+                    <div class="form-grid">
+                      <label class="field">
+                        <span>Nama varian</span>
+                        <input
+                          type="text"
+                          maxlength="160"
+                          data-provider-variant-name
+                          value="<%= variant.display_name||'' %>"
+                        >
+                      </label>
+
+                      <label class="field">
+                        <span>Urutan varian</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100000"
+                          step="1"
+                          data-provider-variant-sort
+                          value="<%= variant.sort_order %>"
+                        >
+                      </label>
+
+                      <div class="summary-row full">
+                        <span>Harga modal supplier</span>
+                        <strong><%= formatIDR(variant.base_price) %></strong>
+                      </div>
+
+                      <label class="field">
+                        <span>Harga jual pelanggan</span>
+                        <input
+                          type="number"
+                          min="<%= variant.base_price %>"
+                          step="1"
+                          data-provider-variant-price
+                          value="<%= variant.retail_price===null?'':variant.retail_price %>"
+                        >
+                      </label>
+
+                      <div class="summary-row">
+                        <span>Margin</span>
+                        <strong data-provider-margin><%= variant.retail_price===null?'—':formatIDR(Number(variant.retail_price)-Number(variant.base_price)) %></strong>
+                      </div>
+                    </div>
+
+                    <label class="switch-row">
+                      <span>Tampilkan varian di toko</span>
+                      <input
+                        type="checkbox"
+                        data-provider-variant-visible
+                        <%= variant.is_visible?'checked':'' %>
+                      >
+                    </label>
+
+                    <div class="field">
+                      <span>Icon varian</span>
+                      <% if(variant.icon_url){ %>
+                        <div class="owner-product-card-cover">
+                          <img
+                            src="<%= variant.icon_url %>"
+                            alt="Icon <%= variant.display_name %>"
+                            loading="lazy"
+                            decoding="async"
+                          >
+                        </div>
+                      <% } %>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        data-provider-variant-icon-file
+                      >
+                      <progress
+                        value="0"
+                        max="100"
+                        hidden
+                        data-provider-variant-progress
+                      ></progress>
+                      <small class="muted" data-provider-variant-status></small>
+                    </div>
+                  </article>
+                <% }) %>
+              </section>
+
+              <button class="button button-primary" type="submit">
+                Simpan perubahan produk
+              </button>
+            </form>
+          <% } %>
+
+          <section class="panel owner-product-list-panel">
+            <div class="section-header">
+              <div>
+                <h2>Daftar produk provider</h2>
+                <p class="muted">
+                  Pilih tombol Edit pada kartu produk untuk mengatur tampilannya,
+                  harga jual, varian, dan media.
+                </p>
+              </div>
             </div>
 
             <% if(!(providerProducts||[]).length){ %>
-              <p class="muted">Tidak ada produk pada filter ini.</p>
+              <div class="empty-state compact">
+                <%- icon('shop-twotone') %>
+                <h3>Produk tidak ditemukan</h3>
+                <p>Coba ubah tipe katalog atau kata pencarian.</p>
+              </div>
+            <% } else { %>
+              <div class="owner-product-card-grid">
+                <% (providerProducts||[]).forEach(product=>{
+                  const providerCategory=(providerCategories||[]).find(
+                    category=>category.category_key===product.category_key
+                  );
+                  const editUrl='/owner/provider-products?type='+
+                    encodeURIComponent(providerType)+
+                    '&product='+
+                    encodeURIComponent(product.provider_product_id);
+                %>
+                  <article class="owner-product-card">
+                    <div class="owner-product-card-main">
+                      <div class="owner-product-card-cover">
+                        <div class="owner-product-card-cover-fallback" aria-hidden="true">
+                          <%- icon(providerCategory?.icon_key||'category-management') %>
+                        </div>
+                      </div>
+
+                      <div class="owner-product-card-content">
+                        <div class="owner-product-card-heading">
+                          <h3 class="owner-product-card-title">
+                            <%= product.display_name %>
+                          </h3>
+                          <a
+                            class="button button-secondary button-small"
+                            href="<%= editUrl %>"
+                            aria-label="Edit <%= product.display_name %>"
+                          >Edit</a>
+                        </div>
+
+                        <small class="muted">
+                          ID provider: <%= product.provider_product_id %>
+                        </small>
+
+                        <div class="owner-product-card-metrics">
+                          <div
+                            class="owner-product-card-metric"
+                            role="group"
+                            aria-label="Kategori"
+                          >
+                            <strong>
+                              <span class="category-name-with-icon">
+                                <%- icon(providerCategory?.icon_key||'category-management','icon category-inline-icon') %>
+                                <span><%= product.category_name %></span>
+                              </span>
+                            </strong>
+                          </div>
+
+                          <div
+                            class="owner-product-card-metric"
+                            role="group"
+                            aria-label="Varian tampil"
+                          >
+                            <strong>
+                              <%= product.visible_variant_count %> / <%= product.variant_count %>
+                            </strong>
+                          </div>
+
+                          <div
+                            class="owner-product-card-metric"
+                            role="group"
+                            aria-label="Harga mulai"
+                          >
+                            <strong>
+                              <%= product.minimum_retail_price===null?'—':formatIDR(product.minimum_retail_price) %>
+                            </strong>
+                          </div>
+
+                          <div
+                            class="owner-product-card-metric"
+                            role="group"
+                            aria-label="Status"
+                          >
+                            <strong>
+                              <%= product.is_visible?'Tampil':'Disembunyikan' %>
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                <% }) %>
+              </div>
             <% } %>
 
             <%- include('../partials/pagination',{
@@ -292,20 +645,26 @@
           </section>
 
           <section class="panel">
-            <h2>Kategori Tampilan</h2>
-            <p class="muted">Dua kategori utama tetap Aplikasi Premium dan Game. Atur nama, icon, urutan, serta status subkategori.</p>
-            <div class="service-grid">
-              <% (providerCategories||[]).forEach(category=>{ %>
-                <article class="service-card">
-                  <div>
-                    <div class="eyebrow"><%= category.parent_key?'Subkategori':'Kategori utama' %></div>
-                    <h3><%= category.name %></h3>
-                    <p><%= category.category_key %></p>
-                    <small class="muted"><%= category.icon_key||'Tanpa icon' %> · Urutan <%= category.sort_order %> · <%= category.is_active?'Aktif':'Nonaktif' %></small>
-                  </div>
-                  <div class="service-footer">
+            <div class="section-header">
+              <div>
+                <h2>Kategori tampilan</h2>
+                <p class="muted">
+                  Kategori utama Aplikasi Premium dan Game memiliki subkategori.
+                  Atur nama, icon, urutan, serta statusnya di sini.
+                </p>
+              </div>
+            </div>
+
+            <% if(!(providerCategories||[]).length){ %>
+              <div class="empty-state compact">
+                <h3>Belum ada kategori</h3>
+              </div>
+            <% } else { %>
+              <div class="owner-categories-grid" aria-label="Daftar kategori provider">
+                <% (providerCategories||[]).forEach(category=>{ %>
+                  <article class="owner-category-card">
                     <button
-                      class="button button-secondary button-small"
+                      class="owner-category-edit"
                       type="button"
                       data-owner-provider-category-edit
                       data-category-key="<%= category.category_key %>"
@@ -313,149 +672,32 @@
                       data-category-icon-key="<%= category.icon_key||'' %>"
                       data-category-sort-order="<%= category.sort_order %>"
                       data-category-is-active="<%= category.is_active?'true':'false' %>"
-                    >Edit kategori</button>
-                  </div>
-                </article>
-              <% }) %>
-            </div>
-          </section>
+                      aria-label="Edit kategori <%= category.name %>"
+                    >
+                      <span class="owner-category-heading">
+                        <strong class="owner-category-name">
+                          <span class="category-name-with-icon">
+                            <%- icon(category.icon_key||'category-management','icon category-inline-icon') %>
+                            <span><%= category.name %></span>
+                          </span>
+                        </strong>
+                        <span class="owner-category-status <%= category.is_active?'is-active':'is-inactive' %>">
+                          <%= category.is_active?'Aktif':'Nonaktif' %>
+                        </span>
+                      </span>
 
-          <% if(providerProduct){ %>
-            <form
-              class="panel stack-form"
-              data-provider-product-form
-              data-provider-type="<%= providerType %>"
-              data-product-id="<%= providerProduct.provider_product_id %>"
-            >
-              <h2>Edit <%= providerProduct.display_name %></h2>
-
-              <label class="field">
-                <span>Nama tampilan</span>
-                <input name="displayName" value="<%= providerProduct.display_name %>" required minlength="2" maxlength="160">
-              </label>
-
-              <label class="field">
-                <span>Kategori tampilan</span>
-                <div class="jyyr-select" data-jyyr-select>
-                  <input
-                    type="hidden"
-                    name="categoryKey"
-                    value="<%= providerProduct.category_key %>"
-                    data-jyyr-select-value
-                  >
-                  <button
-                    class="jyyr-select-trigger"
-                    type="button"
-                    aria-haspopup="listbox"
-                    aria-expanded="false"
-                    data-jyyr-select-trigger
-                  >
-                    <span data-jyyr-select-label></span>
-                    <span class="jyyr-select-chevron" aria-hidden="true"></span>
-                  </button>
-                  <div class="jyyr-select-menu" role="listbox" data-jyyr-select-menu>
-                    <% (providerCategories||[]).filter(category=>category.parent_key===providerProduct.category_parent_key).forEach(category=>{ %>
-                      <button
-                        type="button"
-                        class="jyyr-select-option"
-                        role="option"
-                        data-jyyr-select-option
-                        data-value="<%= category.category_key %>"
-                        data-label="<%= category.name %><%= category.is_active?'':' (Nonaktif)' %>"
-                      ><%= category.name %><%= category.is_active?'':' (Nonaktif)' %></button>
-                    <% }) %>
-                  </div>
-                </div>
-              </label>
-
-              <label class="field">
-                <span>Urutan produk</span>
-                <input name="sortOrder" type="number" min="0" max="100000" step="1" value="<%= providerProduct.sort_order %>" required>
-              </label>
-
-              <label class="switch-row">
-                <span>Tampilkan produk di toko</span>
-                <input name="isVisible" type="checkbox" <%= providerProduct.is_visible?'checked':'' %>>
-              </label>
-
-              <div class="field">
-                <span>Cover produk</span>
-                <% if(providerProduct.cover_url){ %>
-                  <img src="<%= providerProduct.cover_url %>" alt="Cover <%= providerProduct.display_name %>" loading="lazy" decoding="async">
-                <% } %>
-                <input type="file" accept="image/png,image/jpeg,image/webp" data-provider-cover-file>
-                <progress value="0" max="100" hidden data-provider-cover-progress></progress>
-                <small class="muted" data-provider-cover-status></small>
+                      <span class="owner-category-meta">
+                        <span><%= category.parent_key?'Subkategori':'Kategori utama' %></span>
+                        <span title="<%= category.category_key %>">
+                          <%= category.category_key %> · Urutan <%= category.sort_order %>
+                        </span>
+                      </span>
+                    </button>
+                  </article>
+                <% }) %>
               </div>
-
-              <h3>Varian dan harga</h3>
-              <% (providerProduct.variants||[]).forEach(variant=>{ %>
-                <article
-                  class="panel stack-form"
-                  data-provider-variant
-                  data-variant-id="<%= variant.variant_id %>"
-                  data-provider-base-price="<%= variant.base_price %>"
-                >
-                  <h4><%= variant.source_name||variant.display_name %></h4>
-
-                  <label class="field">
-                    <span>Nama varian</span>
-                    <input
-                      type="text"
-                      maxlength="160"
-                      data-provider-variant-name
-                      value="<%= variant.display_name||'' %>"
-                    >
-                  </label>
-
-                  <div class="summary-row">
-                    <span>Harga modal (Owner)</span>
-                    <strong><%= formatIDR(variant.base_price) %></strong>
-                  </div>
-
-                  <label class="field">
-                    <span>Harga jual</span>
-                    <input
-                      type="number"
-                      min="<%= variant.base_price %>"
-                      step="1"
-                      data-provider-variant-price
-                      value="<%= variant.retail_price===null?'':variant.retail_price %>"
-                    >
-                  </label>
-
-                  <div class="summary-row">
-                    <span>Margin</span>
-                    <strong data-provider-margin><%= variant.retail_price===null?'—':formatIDR(Number(variant.retail_price)-Number(variant.base_price)) %></strong>
-                  </div>
-
-                  <label class="field">
-                    <span>Urutan varian</span>
-                    <input type="number" min="0" max="100000" step="1" data-provider-variant-sort value="<%= variant.sort_order %>">
-                  </label>
-
-                  <label class="switch-row">
-                    <span>Tampilkan varian</span>
-                    <input type="checkbox" data-provider-variant-visible <%= variant.is_visible?'checked':'' %>>
-                  </label>
-
-                  <div class="field">
-                    <span>Icon varian</span>
-                    <% if(variant.icon_url){ %>
-                      <img src="<%= variant.icon_url %>" alt="Icon varian" loading="lazy" decoding="async">
-                    <% } %>
-                    <input type="file" accept="image/png,image/jpeg,image/webp" data-provider-variant-icon-file>
-                    <progress value="0" max="100" hidden data-provider-variant-progress></progress>
-                    <small class="muted" data-provider-variant-status></small>
-                  </div>
-                </article>
-              <% }) %>
-
-              <button class="button button-primary" type="submit">Simpan konfigurasi provider</button>
-            </form>
-          <% } else { %>
-            <p class="muted">Pilih produk pada daftar di atas untuk mengubah tampilan dan harga jual.</p>
-          <% } %>
+            <% } %>
+          </section>
         </div>
 
       <% } else if(ownerSection==='products'){ %>

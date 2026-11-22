@@ -60,3 +60,30 @@ test('Owner provider-product listing initializes an empty editor local',()=>{
     'default editor local is assigned before optional editor lookup'
   );
 });
+
+
+test('Owner provider-products page follows canonical Owner product UI',()=>{
+  const view=read('views/owner/index.ejs');
+
+  const start=view.indexOf("else if(ownerSection==='provider-products'){");
+  const end=view.indexOf("else if(ownerSection==='products'){",start);
+
+  assert.ok(start>=0 && end>start,'Provider page branch exists');
+
+  const providerView=view.slice(start,end);
+
+  assert.match(providerView,/class="owner-filter-bar"/);
+  assert.match(providerView,/owner-filter-field owner-filter-search/);
+  assert.match(providerView,/owner-product-card-grid/);
+  assert.match(providerView,/class="owner-product-card"/);
+  assert.doesNotMatch(providerView,/<table>/);
+  assert.match(providerView,/owner-categories-grid/);
+  assert.match(providerView,/owner-category-card/);
+
+  assert.match(providerView,/data-provider-product-form/);
+  assert.match(providerView,/data-provider-variant-price/);
+  assert.match(providerView,/data-provider-margin/);
+  assert.match(providerView,/data-provider-cover-file/);
+  assert.match(providerView,/data-provider-variant-icon-file/);
+  assert.match(providerView,/data-owner-provider-category-edit/);
+});
