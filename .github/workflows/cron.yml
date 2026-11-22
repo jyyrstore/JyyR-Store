@@ -31,4 +31,27 @@ jobs:
             --retry-delay 2 \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             -H "Accept: application/json" \
+            --output cron-output.json \
             "${APP_URL%/}/api/cron/expire"
+
+      - name: Validate cron JSON
+        run: |
+          set -euo pipefail
+          python -m json.tool cron-output.json > /dev/null
+
+      - name: Upload cron JSON artifact
+        id: cron-json-artifact
+        uses: actions/upload-artifact@v7
+        with:
+          path: cron-output.json
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Print cron JSON download link
+        env:
+          CRON_JSON_URL: ${{ steps.cron-json-artifact.outputs.artifact-url }}
+        run: |
+          set -euo pipefail
+          : "${CRON_JSON_URL:?Artifact URL output is empty}"
+          printf 'Cron JSON: %s\n' "$CRON_JSON_URL"
