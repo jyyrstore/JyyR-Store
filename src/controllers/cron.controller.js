@@ -397,6 +397,18 @@ async function expire(req, res) {
     );
   }
 
+  let dwigitalCatalog;
+
+  try{
+    const {runDwigitalCatalogSync}=require('../jobs/dwigital-catalog-sync.job');
+    dwigitalCatalog=await runDwigitalCatalogSync();
+  }catch(error){
+    log('warn','dwigital_catalog_sync_failed',{
+      code:String(error?.code||'DWIGITAL_SYNC_FAILED').slice(0,64)
+    });
+    dwigitalCatalog={status:'failed'};
+  }
+
   return res.json({
     success: true,
     paymentReconciliation,
@@ -404,6 +416,7 @@ async function expire(req, res) {
     payments,
     deposits,
     productUploads,
+    dwigitalCatalog,
     requestId: req.id
   });
 }

@@ -1,0 +1,3 @@
+# Keep local credentials out of deployment; allow the safe template.
+.env*
+!.env.example

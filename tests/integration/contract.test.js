@@ -436,7 +436,7 @@ test('dashboard information uses timeline markup and global theme tokens',()=>{
 
   assert.doesNotMatch(timelineStyles,/#[0-9a-f]{3,8}\b/i);
 });
-for(const t of ['profiles','roles','categories','products','product_variants','product_contents','carts','cart_items','orders','order_items','payments','payment_events','deposits','wallets','wallet_transactions','idempotency_keys','entitlements','download_logs','services','service_orders','tickets','ticket_messages','messages','notifications','notification_preferences','login_history','activity_logs','announcements','faqs','maintenance_settings','site_settings','refunds']) test(`schema includes ${t}`,()=>assert.match(migrations,new RegExp(`create table if not exists ${t}\\b`,'i')));
+for(const t of ['profiles','roles','categories','products','product_variants','dwigital_catalog','dwigital_catalog_sync_state','product_contents','carts','cart_items','orders','order_items','payments','payment_events','deposits','wallets','wallet_transactions','idempotency_keys','entitlements','download_logs','services','service_orders','tickets','ticket_messages','messages','notifications','notification_preferences','login_history','activity_logs','announcements','faqs','maintenance_settings','site_settings','refunds']) test(`schema includes ${t}`,()=>assert.match(migrations,new RegExp(`create table if not exists ${t}\\b`,'i')));
 test('database verifier includes critical payment and idempotency tables',()=>{
   const verifier=fs.readFileSync(
     path.join(root,'scripts/verify-database.js'),

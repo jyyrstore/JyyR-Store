@@ -10,6 +10,8 @@ const REQUIRED_TABLES=[
   'email_verification_otps',
   'products',
   'product_variants',
+  'dwigital_catalog',
+  'dwigital_catalog_sync_state',
   'product_contents',
   'orders',
   'payments',
