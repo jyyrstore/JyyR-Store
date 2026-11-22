@@ -67,19 +67,45 @@ async function home(req,res,next){
 }
 async function store(req,res,next){
   try{
-    const data=await products.catalog({
-      ...req.query,
-      limit:20
-    });
+    const displayRepo=require('../repositories/dwigital-display.repository');
+
+    const [data,publicCatalog]=await Promise.all([
+      products.catalog({
+        ...req.query,
+        limit:20
+      }),
+      displayRepo.listPublicCatalog()
+    ]);
+
+    const publicAssetBucket=loadEnv().PUBLIC_ASSET_BUCKET;
 
     data.items=data.items.map(p=>({
       ...p,
       thumbnail_url:p.thumbnail_path
         ? storage.publicUrl(
-            loadEnv().PUBLIC_ASSET_BUCKET,
+            publicAssetBucket,
             p.thumbnail_path
           )
         : null
+    }));
+
+    const providerCatalog=publicCatalog.map(root=>({
+      ...root,
+      subcategories:root.subcategories.map(category=>({
+        ...category,
+        products:category.products.map(product=>({
+          ...product,
+          cover_url:product.cover_path
+            ? storage.publicUrl(publicAssetBucket,product.cover_path)
+            : null,
+          variants:product.variants.map(variant=>({
+            ...variant,
+            icon_url:variant.icon_path
+              ? storage.publicUrl(publicAssetBucket,variant.icon_path)
+              : null
+          }))
+        }))
+      }))
     }));
 
     res.render(
@@ -87,6 +113,7 @@ async function store(req,res,next){
       base(req,{
         view:'pages/store',
         ...data,
+        providerCatalog,
         storePagination:
           paginationMeta(
             data.total,
@@ -1029,6 +1056,63 @@ function ownerPage(section){
         data.dashboard=dashboardData;
         data.analytics=analyticsData;
       }
+      else if(section==='provider-products'){
+        const repo=require('../repositories/dwigital-display.repository');
+        const type=req.query.type==='game'?'game':'digital';
+        const search=String(req.query.search||'').trim();
+        const pager=ownerPager(req);
+        const productId=String(req.query.product||'').trim();
+
+        const [providerProducts,total,providerCategories]=await Promise.all([
+          repo.listProviderProducts({
+            type,
+            search,
+            limit:pager.limit,
+            offset:pager.offset
+          }),
+          repo.countProviderProducts({type,search}),
+          repo.listCategories({includeInactive:true})
+        ]);
+
+        data.providerType=type;
+        data.providerSearch=search;
+        data.providerProducts=providerProducts;
+        data.providerCategories=providerCategories;
+        data.providerProductTotal=total;
+        data.ownerPagination=paginationMeta(
+          total,
+          pager.page,
+          pager.limit
+        );
+
+        data.providerProduct=null;
+
+        if(productId){
+          const providerProduct=await repo.findProviderProduct(type,productId);
+
+          if(!providerProduct){
+            return res.redirect(
+              '/owner/provider-products?type='+encodeURIComponent(type)
+            );
+          }
+
+          const bucket=loadEnv().PUBLIC_ASSET_BUCKET;
+
+          providerProduct.cover_url=providerProduct.cover_path
+            ? storage.publicUrl(bucket,providerProduct.cover_path)
+            : null;
+
+          providerProduct.variants=providerProduct.variants.map(variant=>({
+            ...variant,
+            icon_url:variant.icon_path
+              ? storage.publicUrl(bucket,variant.icon_path)
+              : null
+          }));
+
+          data.providerProduct=providerProduct;
+        }
+      }
+
       else if(section==='products'){
         const repo=require('../repositories/products.repository');
         const pager=ownerPager(req);

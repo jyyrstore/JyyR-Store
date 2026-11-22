@@ -1175,11 +1175,13 @@
     return tusLoaderPromise;
   }
 
-  async function uploadOwnerFile(productId,file,{contentType='THUMBNAIL',progressEl=null,statusEl=null,meta={}}={}){
+  async function uploadOwnerFile(productId,file,{contentType='THUMBNAIL',progressEl=null,statusEl=null,meta={},endpointBase=null}={}){
     if(!file)return null;
 
+    const uploadBase=endpointBase||('/api/owner/products/'+encodeURIComponent(productId));
+
     const init=await api.request(
-      '/api/owner/products/'+encodeURIComponent(productId)+'/upload-init',
+      uploadBase+'/upload-init',
       {
         method:'POST',
         body:{
@@ -1265,7 +1267,7 @@
     }
 
     const completed=await api.request(
-      '/api/owner/products/'+encodeURIComponent(productId)+'/upload-complete',
+      uploadBase+'/upload-complete',
       {
         method:'POST',
         body:{
@@ -3720,6 +3722,34 @@ ${productPricingModesMarkup('FIXED')}
       ]
     })}</label><button class="button button-primary" data-user-role="${id}">Change Role</button></div>`)}
     const deleteCat=e.target.closest('[data-owner-delete-category]');if(deleteCat){if(!(await window.JYYRModal.confirm('Hapus kategori ini? Produk yang menggunakan kategori ini akan tetap ada tanpa kategori.')))return;deleteCat.disabled=true;try{await ownerAction('/api/owner/categories/'+encodeURIComponent(deleteCat.dataset.ownerDeleteCategory),{},'DELETE','Kategori dihapus.');location.reload()}catch(err){toast.error(err.message);deleteCat.disabled=false}}
+
+    const providerCategoryEdit=e.target.closest('[data-owner-provider-category-edit]');
+    if(providerCategoryEdit){
+      const d=providerCategoryEdit.dataset;
+
+      open(`<form data-provider-category-form class="stack-form">
+        <h2>Edit kategori provider</h2>
+        <input type="hidden" name="categoryKey" value="${esc(d.categoryKey)}">
+        <label class="field">
+          <span>Nama kategori</span>
+          <input name="name" value="${esc(d.categoryName)}" required minlength="2" maxlength="100">
+        </label>
+        <label class="field">
+          <span>Icon kategori</span>
+          ${categoryIconPicker('iconKey',d.categoryIconKey||'')}
+        </label>
+        <label class="field">
+          <span>Urutan</span>
+          <input name="sortOrder" type="number" min="0" max="100000" step="1" value="${esc(d.categorySortOrder)}" required>
+        </label>
+        <label class="switch-row">
+          <span>Aktif</span>
+          <input name="isActive" type="checkbox" ${d.categoryIsActive==='true'?'checked':''}>
+        </label>
+        ${formButtons()}
+      </form>`);
+    }
+
     const editCat=e.target.closest('[data-owner-edit-category]');if(editCat){let d;try{d=JSON.parse(editCat.dataset.ownerEditCategory)}catch{return}const parentCategory=d.parent_id?(window.__OWNER_CATEGORIES||[]).find(c=>String(c.id)===String(d.parent_id)):null;const editParent=parentCategory||d;const isSubcategory=!!parentCategory;open(`<form data-owner-category-edit class="stack-form"><h2>Edit Kategori / Subkategori</h2><input type="hidden" name="id" value="${esc(d.id)}"><label class="field"><span>Nama Kategori</span><input name="name" value="${esc(editParent.name)}" required maxlength="80"></label><label class="field"><span>Icon Kategori</span>${categoryIconPicker('icon_key',editParent.icon_key||'')}</label><label class="field"><span>Subkategori</span><input name="subcategory" value="${esc(isSubcategory?d.name:'')}" ${isSubcategory?'required':''} maxlength="80"></label><label class="field"><span>Icon Subkategori</span>${categoryIconPicker('subcategory_icon_key',isSubcategory?d.icon_key||'':'')}</label><label class="field"><span>Slug (opsional)</span><input name="slug" value="${esc(editParent.slug||'')}" maxlength="100"></label><label class="switch-row"><span>Aktif</span><input type="checkbox" name="is_active" ${d.is_active?'checked':''}></label>${formButtons()}</form>`)}
     const editSvc=e.target.closest('[data-owner-edit-service]');if(editSvc){let d;try{d=JSON.parse(editSvc.dataset.ownerEditService)}catch{return}open(`<form data-owner-service-edit class="stack-form"><h2>Edit Service</h2><input type="hidden" name="id" value="${esc(d.id)}"><label class="field"><span>Nama</span><input name="name" value="${esc(d.name)}" required></label><label class="field"><span>Kategori</span><input name="category" value="${esc(d.category||'')}"></label><label class="field"><span>Harga</span><input name="price" type="number" value="${Number(d.price)||0}" min="0"></label><label class="field"><span>Description</span><textarea name="description">${esc(d.description||'')}</textarea></label><label class="switch-row"><span>Aktif</span><input type="checkbox" name="is_active" ${d.is_active?'checked':''}></label>${formButtons()}</form>`)}
     const editFaq=e.target.closest('[data-owner-edit-faq]');if(editFaq){let d;try{d=JSON.parse(editFaq.dataset.ownerEditFaq)}catch{return}open(`<form data-owner-faq-edit class="stack-form"><h2>Edit FAQ</h2><input type="hidden" name="id" value="${esc(d.id)}"><label class="field"><span>Category</span><input name="category" value="${esc(d.category)}"></label><label class="field"><span>Question</span><input name="question" value="${esc(d.question)}"></label><label class="field"><span>Answer</span><textarea name="answer">${esc(d.answer)}</textarea></label><label class="switch-row"><span>Published</span><input type="checkbox" name="is_published" ${d.is_published?'checked':''}></label>${formButtons()}</form>`)}
@@ -3789,6 +3819,19 @@ ${productPricingModesMarkup('FIXED')}
   }
 
   document.addEventListener('input',e=>{
+    const providerPrice=e.target.closest('[data-provider-variant-price]');
+
+    if(providerPrice){
+      const variant=providerPrice.closest('[data-provider-variant]');
+      const margin=variant?.querySelector('[data-provider-margin]');
+      const basePrice=Number(variant?.dataset.providerBasePrice||0);
+      const value=providerPrice.value.trim();
+
+      if(margin){
+        margin.textContent=value===''?'—':money(Number(value)-basePrice);
+      }
+    }
+
     const input=e.target.closest('[data-otp-digit]');
     if(!input)return;
 
@@ -4197,7 +4240,116 @@ ${productPricingModesMarkup('FIXED')}
     const msg=e.target.closest('[data-message-form]');if(msg){e.preventDefault();const body=new FormData(msg).get('body');const btn=msg.querySelector('button');btn.disabled=true;try{await api.request('/api/messages',{method:'POST',body:{body}});toast.success('Pesan terkirim.');location.reload()}catch(err){toast.error(err.message)}finally{btn.disabled=false}}
     const maint=e.target.closest('[data-owner-maintenance]');if(maint){e.preventDefault();const fd=new FormData(maint);const body={enabled:fd.get('enabled')==='on',title:fd.get('title'),message:fd.get('message'),scheduled_start:fd.get('scheduled_start')||null,scheduled_end:fd.get('scheduled_end')||null,allow_owner_access:fd.get('allow_owner_access')==='on'};try{await api.request('/api/owner/maintenance',{method:'PUT',body});toast.success('Maintenance setting tersimpan.')}catch(err){toast.error(err.message)}}
     const form=e.target.closest('[data-deposit-submit]');if(form){e.preventDefault()}
+
+    const providerCategory=e.target.closest('[data-provider-category-form]');
+    if(providerCategory){
+      e.preventDefault();
+
+      const fd=Object.fromEntries(new FormData(providerCategory));
+
+      const payload={
+        name:String(fd.name||'').trim(),
+        iconKey:String(fd.iconKey||'').trim()||null,
+        sortOrder:Number(fd.sortOrder),
+        isActive:fd.isActive==='on'
+      };
+
+      try{
+        await ownerAction(
+          '/api/owner/provider-products/categories/'+encodeURIComponent(fd.categoryKey),
+          payload,
+          'PUT',
+          'Kategori provider diperbarui.'
+        );
+        location.reload();
+      }catch(err){
+        toast.error(err.message);
+      }
+    }
+
     const category=e.target.closest('[data-owner-category-form], [data-owner-category-edit]');if(category){e.preventDefault();const fd=Object.fromEntries(new FormData(category));fd.is_active=fd.is_active==='on';const categoryPayload={name:fd.name,is_active:fd.is_active,subcategory:String(fd.subcategory||'').trim(),icon_key:String(fd.icon_key||'').trim()||null,subcategory_icon_key:String(fd.subcategory_icon_key||'').trim()||null};const categorySlug=String(fd.slug||'').trim();if(categorySlug)categoryPayload.slug=categorySlug;try{const id=fd.id;if(id)await ownerAction('/api/owner/categories/'+id,categoryPayload,'PUT','Kategori diperbarui.');else await ownerAction('/api/owner/categories',categoryPayload,'POST','Kategori dibuat.');location.reload()}catch(err){if(err.code==='CATEGORY_ALREADY_EXISTS')toast.error(err.message,{title:'Category Sudah Dimiliki'});else toast.error(err.message)}}
+
+    const providerForm=e.target.closest('[data-provider-product-form]');
+    if(providerForm){
+      e.preventDefault();
+
+      if(providerForm.dataset.submitting==='1')return;
+      providerForm.dataset.submitting='1';
+
+      const button=providerForm.querySelector('button[type="submit"]');
+      if(button)button.disabled=true;
+
+      const productId=providerForm.dataset.productId;
+      const type=providerForm.dataset.providerType;
+      const endpoint='/api/owner/provider-products/'+
+        encodeURIComponent(type)+'/'+encodeURIComponent(productId);
+
+      const variants=Array.from(
+        providerForm.querySelectorAll('[data-provider-variant]')
+      ).map(variant=>{
+        const price=variant.querySelector('[data-provider-variant-price]')?.value.trim()||'';
+
+        return {
+          variantId:variant.dataset.variantId,
+          displayName:variant.querySelector('[data-provider-variant-name]')?.value.trim()||null,
+          retailPrice:price===''?null:Number(price),
+          sortOrder:Number(variant.querySelector('[data-provider-variant-sort]')?.value||0),
+          isVisible:variant.querySelector('[data-provider-variant-visible]')?.checked===true
+        };
+      });
+
+      const payload={
+        categoryKey:providerForm.querySelector('[name="categoryKey"]')?.value,
+        displayName:providerForm.querySelector('[name="displayName"]')?.value.trim(),
+        sortOrder:Number(providerForm.querySelector('[name="sortOrder"]')?.value||0),
+        isVisible:providerForm.querySelector('[name="isVisible"]')?.checked===true,
+        variants
+      };
+
+      try{
+        await ownerAction(
+          endpoint,
+          payload,
+          'PUT',
+          'Konfigurasi produk provider disimpan.'
+        );
+
+        const coverInput=providerForm.querySelector('[data-provider-cover-file]');
+        const coverFile=coverInput?.files?.[0];
+
+        if(coverFile){
+          await uploadOwnerFile(productId,coverFile,{
+            contentType:'THUMBNAIL',
+            endpointBase:endpoint,
+            progressEl:providerForm.querySelector('[data-provider-cover-progress]'),
+            statusEl:providerForm.querySelector('[data-provider-cover-status]')
+          });
+        }
+
+        for(const variant of providerForm.querySelectorAll('[data-provider-variant]')){
+          const iconInput=variant.querySelector('[data-provider-variant-icon-file]');
+          const iconFile=iconInput?.files?.[0];
+
+          if(!iconFile)continue;
+
+          await uploadOwnerFile(productId,iconFile,{
+            contentType:'VARIANT_ICON',
+            endpointBase:endpoint,
+            meta:{variantId:variant.dataset.variantId},
+            progressEl:variant.querySelector('[data-provider-variant-progress]'),
+            statusEl:variant.querySelector('[data-provider-variant-status]')
+          });
+        }
+
+        location.reload();
+      }catch(err){
+        toast.error(err.message);
+      }finally{
+        delete providerForm.dataset.submitting;
+        if(button)button.disabled=false;
+      }
+    }
+
     const pfm=e.target.closest('[data-owner-product-form]');
     if(pfm){
       e.preventDefault();

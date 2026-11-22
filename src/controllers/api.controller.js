@@ -511,6 +511,50 @@ const ownerController={
  dashboard:async(req,res)=>ok(res,await analytics.dashboard()),
  analytics:async(req,res)=>ok(res,await analytics.period(req.query.period||'30d',req.query.from,req.query.to)),
  topOrders:async(req,res)=>ok(res,(await analytics.period(req.query.period||'30d',req.query.from,req.query.to)).top),
+
+ providerProductSave:async(req,res)=>{
+  const saved=await require('../repositories/dwigital-display.repository')
+    .saveProviderProduct(
+      req.params.type,
+      req.params.productId,
+      req.body
+    );
+
+  await recordOwnerAudit(req,{
+    action:'SAVE_DWIGITAL_DISPLAY_PRODUCT',
+    entityType:'dwigital_display_product',
+    entityId:null,
+    metadata:{
+      providerType:req.params.type,
+      providerProductId:req.params.productId,
+      isVisible:saved.is_visible,
+      variantCount:saved.variants.length
+    }
+  });
+
+  return ok(res,saved);
+ },
+ providerCategorySave:async(req,res)=>{
+  const saved=await require('../repositories/dwigital-display.repository')
+    .updateCategory(req.params.categoryKey,{
+      name:req.body.name,
+      iconKey:req.body.iconKey,
+      sortOrder:req.body.sortOrder,
+      isActive:req.body.isActive
+    });
+
+  await recordOwnerAudit(req,{
+    action:'SAVE_DWIGITAL_DISPLAY_CATEGORY',
+    entityType:'dwigital_display_category',
+    entityId:null,
+    metadata:{
+      categoryKey:req.params.categoryKey,
+      isActive:saved.is_active
+    }
+  });
+
+  return ok(res,saved);
+ },
  products:async(req,res)=>ok(res,await require('../repositories/products.repository').adminList({search:req.query.search,status:req.query.status||'',sort:req.query.sort||'position',limit:req.query.limit||100,offset:req.query.offset||0})),
  productCreate:async(req,res)=>{const payload={...req.body,status:'DRAFT'};const p=await product.create(payload);await recordOwnerAudit(req,{action:'CREATE_PRODUCT',entityType:'product',entityId:p.id,metadata:{name:p.name,status:'DRAFT'}});return ok(res,p,201)},
  productUpdate:async(req,res)=>{const repo=require('../repositories/products.repository');const current=await repo.findById(req.params.id);if(!current)throw Object.assign(new Error('Product not found.'),{status:404,code:'PRODUCT_NOT_FOUND',expose:true});const payload={...req.body};delete payload.status;delete payload.thumbnail_path;const p=await product.update(req.params.id,payload);await recordOwnerAudit(req,{action:'EDIT_PRODUCT',entityType:'product',entityId:p.id});return ok(res,p)},
@@ -1220,4 +1264,290 @@ async function ownerUploadComplete(req,res){
   }
 }
 
-module.exports={authController,productController,cartController,orderController,paymentController,depositController,deliveryController,profileController,ticketController,notificationController,serviceController,messageController,contentController,ownerController,ownerUploadInit,ownerUploadComplete};
+
+function providerUploadError(code,message,status=400){
+  return Object.assign(
+    new Error(message),
+    {status,code,expose:true}
+  );
+}
+
+function providerUploadIdentity(req){
+  const type=String(req.params.type||'');
+  const productId=String(req.params.productId||'');
+
+  if(!['digital','game'].includes(type)){
+    throw providerUploadError(
+      'INVALID_DWIGITAL_PROVIDER_TYPE',
+      'Tipe provider tidak didukung.'
+    );
+  }
+
+  if(!/^[A-Za-z0-9_-]{1,128}$/.test(productId)){
+    throw providerUploadError(
+      'INVALID_DWIGITAL_PRODUCT_ID',
+      'ID produk provider tidak valid.'
+    );
+  }
+
+  return {type,productId};
+}
+
+async function ownerProviderUploadInit(req,res){
+  const {type,productId}=providerUploadIdentity(req);
+  const repo=require('../repositories/dwigital-display.repository');
+  const current=await repo.findProviderProduct(type,productId);
+
+  if(!current){
+    throw providerUploadError(
+      'DWIGITAL_PROVIDER_PRODUCT_NOT_FOUND',
+      'Produk provider tidak ditemukan.',
+      404
+    );
+  }
+
+  const contentType=String(req.body.contentType||'').toUpperCase();
+
+  if(!['THUMBNAIL','VARIANT_ICON'].includes(contentType)){
+    throw providerUploadError(
+      'INVALID_DWIGITAL_MEDIA_TYPE',
+      'Tipe media tidak didukung.'
+    );
+  }
+
+  const variantId=String(req.body.variantId||'').trim()||null;
+
+  if(
+    contentType==='VARIANT_ICON' &&
+    (!variantId||!current.variants.some(v=>v.variant_id===variantId))
+  ){
+    throw providerUploadError(
+      'DWIGITAL_PROVIDER_VARIANT_NOT_FOUND',
+      'Varian provider tidak ditemukan.'
+    );
+  }
+
+  if(contentType==='THUMBNAIL'&&variantId){
+    throw providerUploadError(
+      'INVALID_DWIGITAL_MEDIA_TARGET',
+      'Cover produk tidak menggunakan target varian.'
+    );
+  }
+
+  const originalName=String(req.body.originalName||'').trim();
+  const mimeType=String(req.body.mimeType||'').toLowerCase();
+  const fileSize=Number(req.body.fileSize||0);
+  const env=loadEnv();
+  const maxBytes=Math.floor(Number(env.MAX_UPLOAD_MB||100)*1024*1024);
+  const imageMax=contentType==='VARIANT_ICON'
+    ?Math.min(maxBytes,5*1024*1024)
+    :Math.min(maxBytes,100*1024*1024);
+
+  if(!Number.isSafeInteger(fileSize)||fileSize<=0){
+    throw providerUploadError('INVALID_FILE_SIZE','Ukuran file tidak valid.');
+  }
+
+  if(fileSize>imageMax){
+    throw providerUploadError(
+      contentType==='VARIANT_ICON'?'VARIANT_ICON_TOO_LARGE':'THUMBNAIL_TOO_LARGE',
+      contentType==='VARIANT_ICON'
+        ?'Ukuran ikon varian maksimal 5 MB.'
+        :'Ukuran cover maksimal 100 MB.',
+      413
+    );
+  }
+
+  const descriptor=validateUploadDescriptor(
+    {originalName,mime:mimeType},
+    contentType
+  );
+
+  const bucket=env.PUBLIC_ASSET_BUCKET;
+  const path=`dwigital/${type}/${productId}/${crypto.randomUUID()}.${descriptor.extension}`;
+  const signed=await storage.createSignedUploadUrl(bucket,path,false);
+
+  return ok(res,{
+    bucket,
+    path,
+    token:signed.token,
+    signedUrl:signed.signedUrl,
+    expiresIn:7200,
+    contentType,
+    mimeType:descriptor.mime,
+    originalName:descriptor.originalName,
+    fileSize
+  });
+}
+
+async function ownerProviderUploadComplete(req,res){
+  const {type,productId}=providerUploadIdentity(req);
+  const repo=require('../repositories/dwigital-display.repository');
+  const current=await repo.findProviderProduct(type,productId);
+
+  if(!current){
+    throw providerUploadError(
+      'DWIGITAL_PROVIDER_PRODUCT_NOT_FOUND',
+      'Produk provider tidak ditemukan.',
+      404
+    );
+  }
+
+  const contentType=String(req.body.contentType||'').toUpperCase();
+
+  if(!['THUMBNAIL','VARIANT_ICON'].includes(contentType)){
+    throw providerUploadError(
+      'INVALID_DWIGITAL_MEDIA_TYPE',
+      'Tipe media tidak didukung.'
+    );
+  }
+
+  const variantId=String(req.body.variantId||'').trim()||null;
+
+  if(
+    contentType==='VARIANT_ICON' &&
+    (!variantId||!current.variants.some(v=>v.variant_id===variantId))
+  ){
+    throw providerUploadError(
+      'DWIGITAL_PROVIDER_VARIANT_NOT_FOUND',
+      'Varian provider tidak ditemukan.'
+    );
+  }
+
+  if(contentType==='THUMBNAIL'&&variantId){
+    throw providerUploadError(
+      'INVALID_DWIGITAL_MEDIA_TARGET',
+      'Cover produk tidak menggunakan target varian.'
+    );
+  }
+
+  const originalName=String(req.body.originalName||'').trim();
+  const mimeType=String(req.body.mimeType||'').toLowerCase();
+  const fileSize=Number(req.body.fileSize||0);
+  const path=String(req.body.path||'');
+  const prefix=`dwigital/${type}/${productId}/`;
+  const leaf=path.startsWith(prefix)?path.slice(prefix.length):'';
+
+  if(
+    !path.startsWith(prefix)||
+    path.includes('..')||
+    path.length>500||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[a-z0-9]+$/i.test(leaf)
+  ){
+    throw providerUploadError('INVALID_UPLOAD_PATH','Upload path tidak valid.');
+  }
+
+  const env=loadEnv();
+  const maxBytes=Math.floor(Number(env.MAX_UPLOAD_MB||100)*1024*1024);
+  const imageMax=contentType==='VARIANT_ICON'
+    ?Math.min(maxBytes,5*1024*1024)
+    :Math.min(maxBytes,100*1024*1024);
+
+  if(!Number.isSafeInteger(fileSize)||fileSize<=0){
+    throw providerUploadError('INVALID_FILE_SIZE','Ukuran file tidak valid.');
+  }
+
+  if(fileSize>imageMax){
+    throw providerUploadError(
+      contentType==='VARIANT_ICON'?'VARIANT_ICON_TOO_LARGE':'THUMBNAIL_TOO_LARGE',
+      'Ukuran file melebihi batas.',
+      413
+    );
+  }
+
+  const descriptor=validateUploadDescriptor(
+    {originalName,mime:mimeType},
+    contentType
+  );
+
+  if(!leaf.toLowerCase().endsWith('.'+descriptor.extension.toLowerCase())){
+    throw providerUploadError(
+      'UPLOAD_EXTENSION_MISMATCH',
+      'Extension path dan file tidak cocok.'
+    );
+  }
+
+  const bucket=env.PUBLIC_ASSET_BUCKET;
+
+  if(!(await storage.fileExists(bucket,path))){
+    throw providerUploadError(
+      'UPLOAD_NOT_FOUND',
+      'File belum ditemukan di Storage.'
+    );
+  }
+
+  try{
+    await validateUploadedObject({
+      bucket,
+      path,
+      contentType,
+      originalName:descriptor.originalName,
+      mimeType:descriptor.mime,
+      fileSize
+    });
+  }catch(error){
+    await storage.remove(bucket,path).catch(()=>{});
+    throw error;
+  }
+
+  const actualFileInfo=await storage.fileInfo(bucket,path);
+  const actualFileSize=Number(actualFileInfo?.size||0);
+
+  if(!Number.isSafeInteger(actualFileSize)||actualFileSize!==fileSize){
+    await storage.remove(bucket,path).catch(()=>{});
+    throw providerUploadError(
+      'UPLOAD_SIZE_MISMATCH',
+      'Ukuran file di Storage tidak cocok.'
+    );
+  }
+
+  let updated;
+
+  try{
+    updated=await repo.updateMediaPath(type,productId,{
+      contentType,
+      variantId,
+      path
+    });
+  }catch(error){
+    await storage.remove(bucket,path).catch(()=>{});
+    throw error;
+  }
+
+  if(!updated){
+    await storage.remove(bucket,path).catch(()=>{});
+    throw providerUploadError(
+      'DWIGITAL_PROVIDER_MEDIA_TARGET_NOT_FOUND',
+      'Target media provider tidak ditemukan.',
+      404
+    );
+  }
+
+  const previousPath=updated.previousPath;
+
+  if(
+    previousPath &&
+    previousPath!==path &&
+    !(await repo.isMediaReferenced(previousPath))
+  ){
+    await storage.remove(
+      bucket,
+      storage.publicObjectPath(previousPath)
+    ).catch(()=>{});
+  }
+
+  await recordOwnerAudit(req,{
+    action:contentType==='THUMBNAIL'
+      ?'UPLOAD_DWIGITAL_PRODUCT_COVER'
+      :'UPLOAD_DWIGITAL_VARIANT_ICON',
+    entityType:contentType==='THUMBNAIL'
+      ?'dwigital_display_product'
+      :'dwigital_display_variant',
+    entityId:null,
+    metadata:{type,productId,variantId,path,size:fileSize,mimeType:descriptor.mime}
+  });
+
+  return ok(res,{path,contentType,variantId});
+}
+
+
+module.exports={authController,productController,cartController,orderController,paymentController,depositController,deliveryController,profileController,ticketController,notificationController,serviceController,messageController,contentController,ownerController,ownerUploadInit,ownerUploadComplete,ownerProviderUploadInit,ownerProviderUploadComplete};

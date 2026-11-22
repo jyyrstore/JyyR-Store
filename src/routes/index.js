@@ -365,6 +365,7 @@ pageRouter.get('/payment/:id',requireAuth,asyncHandler(page.paymentStatus));
 pageRouter.get('/delivery',requireAuth,asyncHandler(page.delivery));
 
 const owner=express.Router(); owner.use(requireAuth,requireOwner);
+owner.get('/provider-products',asyncHandler(page.ownerPage('provider-products')));
 const ownerSections=['dashboard','products','categories','icon','orders','payments','deposits','users','roles','tickets','messages','services','information','faq','notifications','maintenance','storage','activity','login-history','reports','top-orders','refunds','settings','system'];
 for(const s of ownerSections){ owner.get('/'+s,asyncHandler(page.ownerPage(s))); }
 owner.get('/security',(req,res)=>res.redirect('/owner/login-history'));
@@ -512,6 +513,63 @@ apiRouter.get('/information',asyncHandler(api.contentController.information));
 apiRouter.get('/search',asyncHandler(api.contentController.search));
 
 const ownerApi=express.Router(); ownerApi.use(requireAuth,requireOwner);
+
+const providerRetailPriceSchema=z.preprocess(
+  value=>value===''||value===null||value===undefined?null:value,
+  z.coerce.number().int().min(0).nullable()
+);
+const providerVariantConfigSchema=z.object({
+  variantId:z.string().trim().min(1).max(128),
+  displayName:z.string().trim().max(160).nullable().optional(),
+  retailPrice:providerRetailPriceSchema,
+  sortOrder:z.coerce.number().int().min(0).max(100000),
+  isVisible:zBool
+});
+ownerApi.put(
+  '/provider-products/categories/:categoryKey',
+  validate(z.object({
+    name:z.string().trim().min(2).max(100),
+    iconKey:z.string().trim().max(100).nullable().optional(),
+    sortOrder:z.coerce.number().int().min(0).max(100000),
+    isActive:zBool
+  })),
+  asyncHandler(api.ownerController.providerCategorySave)
+);
+ownerApi.put(
+  '/provider-products/:type/:productId',
+  validate(z.object({
+    categoryKey:z.string().trim().min(1).max(80),
+    displayName:z.string().trim().min(2).max(160),
+    sortOrder:z.coerce.number().int().min(0).max(100000),
+    isVisible:zBool,
+    variants:z.array(providerVariantConfigSchema).min(1).max(300)
+  })),
+  asyncHandler(api.ownerController.providerProductSave)
+);
+ownerApi.post(
+  '/provider-products/:type/:productId/upload-init',
+  validate(z.object({
+    contentType:z.enum(['THUMBNAIL','VARIANT_ICON']),
+    originalName:z.string().trim().min(1).max(255),
+    mimeType:z.string().trim().min(1).max(160),
+    fileSize:z.coerce.number().int().positive(),
+    variantId:z.string().trim().min(1).max(128).nullable().optional()
+  })),
+  asyncHandler(api.ownerProviderUploadInit)
+);
+ownerApi.post(
+  '/provider-products/:type/:productId/upload-complete',
+  validate(z.object({
+    contentType:z.enum(['THUMBNAIL','VARIANT_ICON']),
+    path:z.string().min(1).max(500),
+    originalName:z.string().trim().min(1).max(255),
+    mimeType:z.string().trim().min(1).max(160),
+    fileSize:z.coerce.number().int().positive(),
+    variantId:z.string().trim().min(1).max(128).nullable().optional()
+  })),
+  asyncHandler(api.ownerProviderUploadComplete)
+);
+
 ownerApi.get('/dashboard',asyncHandler(api.ownerController.dashboard));
 ownerApi.get('/analytics',asyncHandler(api.ownerController.analytics));
 ownerApi.get('/top-orders',asyncHandler(api.ownerController.topOrders));

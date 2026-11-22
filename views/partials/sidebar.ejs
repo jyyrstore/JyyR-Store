@@ -19,6 +19,15 @@ const ownerNav=[['dashboard','Dashboard','dashboard-owner'],['products','Produk'
       <div class="sidebar-section-label">Owner Panel</div>
 
       <% ownerNav.forEach(([key,label,ic])=>{ %>
+        <% if(key==='categories'){ %>
+          <a
+            class="nav-link <%= activeOwnerSection==='provider-products'?'active':'' %>"
+            href="/owner/provider-products"
+          >
+            <%- icon('premium-app') %>
+            <span>Produk Provider</span>
+          </a>
+        <% } %>
         <a
           class="nav-link <%= activeOwnerSection===key?'active':'' %>"
           href="/owner/<%= key %>"
