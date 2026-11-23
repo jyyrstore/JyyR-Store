@@ -279,34 +279,31 @@
           </div>
 
           <% if(providerProduct){ %>
-            <form
-              class="stack-form"
-              data-provider-product-form
-              data-provider-type="<%= providerType %>"
-              data-product-id="<%= providerProduct.provider_product_id %>"
-            >
-              <div class="panel">
-                <div class="section-header">
-                  <div>
-                    <div class="eyebrow">Pengaturan provider</div>
-                    <h2>Edit <%= providerProduct.display_name %></h2>
-                    <p class="muted">
-                      ID provider: <%= providerProduct.provider_product_id %>
-                    </p>
+            <div class="owner-product-editor-page" data-owner-product-page="edit_produk">
+              <form
+                class="product-form-modal"
+                data-provider-product-form
+                data-provider-type="<%= providerType %>"
+                data-product-id="<%= providerProduct.provider_product_id %>"
+              >
+                <header class="product-modal-head">
+                  <div class="product-modal-kicker">Pengaturan Provider · Data Produk</div>
+                  <h2>Edit <%= providerProduct.display_name %></h2>
+                  <p>ID provider: <%= providerProduct.provider_product_id %></p>
+                </header>
+
+                <section class="product-modal-section">
+                  <div class="product-modal-section-title">
+                    <strong>1. Identitas dan tampilan toko</strong>
                   </div>
-                </div>
-              <section class="stack-form">
-                <div>
-                  <h3>1. Identitas dan tampilan toko</h3>
                   <p class="muted">
                     Atur nama yang dilihat pelanggan, kategori, urutan produk,
                     serta apakah produk ditampilkan di toko.
                   </p>
-                </div>
 
-                <div class="form-grid">
-                  <label class="field">
-                    <span>Nama tampilan</span>
+                  <div class="product-modal-grid">
+                    <label class="field">
+                      <span>Nama tampilan</span>
                     <input
                       name="displayName"
                       value="<%= providerProduct.display_name %>"
@@ -377,55 +374,110 @@
                 </label>
               </section>
 
-              <section class="stack-form">
-                <div>
-                  <h3>2. Cover produk</h3>
-                  <p class="muted">
-                    Cover digunakan sebagai gambar utama produk di halaman toko.
-                    Format yang didukung: PNG, JPG, dan WebP.
-                  </p>
-                </div>
+                <section class="product-modal-section">
+                  <div class="product-modal-section-title">
+                    <strong>2. Cover produk</strong>
+                    <span class="badge">JPG · PNG · WEBP</span>
+                  </div>
 
-                <label class="field">
-                  <span>Gambar cover</span>
-                  <% if(providerProduct.cover_url){ %>
-                    <div class="owner-product-card-cover">
+                  <div class="product-thumbnail-box">
+                    <div
+                      class="product-thumbnail-preview-stage"
+                      data-thumbnail-stage
+                    >
+                      <% if(providerProduct.cover_url){ %>
+                        <img
+                          class="product-thumbnail-preview"
+                          data-current-thumbnail
+                          src="<%= providerProduct.cover_url %>"
+                          alt="Cover <%= providerProduct.display_name %>"
+                          loading="lazy"
+                          decoding="async"
+                        >
+                      <% } else { %>
+                        <div
+                          class="product-thumbnail-empty"
+                          data-thumbnail-empty
+                        >Preview Cover</div>
+                      <% } %>
+
                       <img
-                        src="<%= providerProduct.cover_url %>"
-                        alt="Cover <%= providerProduct.display_name %>"
-                        loading="lazy"
-                        decoding="async"
+                        class="product-thumbnail-preview"
+                        data-thumbnail-preview
+                        alt="Preview cover baru"
+                        hidden
                       >
                     </div>
-                  <% } %>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    data-provider-cover-file
-                  >
-                  <progress
-                    value="0"
-                    max="100"
-                    hidden
-                    data-provider-cover-progress
-                  ></progress>
-                  <small class="muted" data-provider-cover-status></small>
-                </label>
-              </section>
 
-              <section class="stack-form">
-                <div>
-                  <h3>3. Varian dan harga</h3>
+                    <div class="product-upload-info">
+                      <strong>Ganti cover produk</strong>
+                      <small>Gunakan gambar utama yang jelas untuk tampilan Store.</small>
+
+                      <div
+                        class="jyyr-file-picker"
+                        data-jyyr-file-picker
+                      >
+                        <input
+                          class="jyyr-native-file-input"
+                          data-jyyr-file-input
+                          data-thumbnail-input
+                          data-provider-cover-file
+                          name="cover"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                        >
+
+                        <div class="jyyr-file-picker-main jyyr-file-picker-main-cover">
+                          <div class="jyyr-file-picker-status-row">
+                            <span
+                              class="jyyr-file-name"
+                              data-jyyr-file-name
+                            >Belum ada file dipilih.</span>
+                            <small
+                              class="jyyr-file-thumbnail-status"
+                              data-thumbnail-status
+                              data-provider-cover-status
+                            >Belum ada perubahan cover.</small>
+                          </div>
+
+                          <button
+                            type="button"
+                            class="button button-secondary jyyr-file-trigger"
+                            data-jyyr-file-trigger
+                          >Pilih gambar</button>
+                        </div>
+
+                        <button
+                          type="button"
+                          class="button button-secondary jyyr-file-clear"
+                          data-jyyr-file-clear
+                          hidden
+                        >Hapus</button>
+                      </div>
+
+                      <progress
+                        data-thumbnail-progress
+                        data-provider-cover-progress
+                        value="0"
+                        max="100"
+                        hidden
+                      ></progress>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="product-modal-section">
+                  <div class="product-modal-section-title">
+                    <strong>3. Varian dan harga</strong>
+                  </div>
                   <p class="muted">
                     Harga modal berasal dari katalog supplier. Isi harga jual
                     untuk menentukan harga pelanggan. Margin dihitung otomatis
                     dari harga jual dikurangi harga modal.
                   </p>
-                </div>
-              </section>
-              </div>
+                </section>
 
-              <section class="stack-form">
+                <section class="stack-form">
                 <% if(!(providerProduct.variants||[]).length){ %>
                   <div class="empty-state compact">
                     <h3>Belum ada varian</h3>
@@ -435,19 +487,19 @@
 
                 <% (providerProduct.variants||[]).forEach(variant=>{ %>
                   <article
-                    class="panel stack-form"
+                    class="product-modal-section stack-form"
                     data-provider-variant
                     data-variant-id="<%= variant.variant_id %>"
                     data-provider-base-price="<%= variant.base_price %>"
                   >
-                    <div>
-                      <h4><%= variant.source_name||variant.display_name %></h4>
+                    <div class="product-modal-section-title">
+                      <strong><%= variant.source_name||variant.display_name %></strong>
                       <small class="muted">
                         ID varian: <%= variant.variant_id %>
                       </small>
                     </div>
 
-                    <div class="form-grid">
+                    <div class="product-modal-grid">
                       <label class="field">
                         <span>Nama varian</span>
                         <input
@@ -501,39 +553,98 @@
                       >
                     </label>
 
-                    <div class="field">
-                      <span>Icon varian</span>
-                      <% if(variant.icon_url){ %>
-                        <div class="owner-product-card-cover">
+                    <div class="product-thumbnail-box">
+                      <div
+                        class="product-thumbnail-preview-stage"
+                        data-thumbnail-stage
+                      >
+                        <% if(variant.icon_url){ %>
                           <img
+                            class="product-thumbnail-preview"
+                            data-current-thumbnail
                             src="<%= variant.icon_url %>"
                             alt="Icon <%= variant.display_name %>"
                             loading="lazy"
                             decoding="async"
                           >
+                        <% } else { %>
+                          <div
+                            class="product-thumbnail-empty"
+                            data-thumbnail-empty
+                          >Preview Icon</div>
+                        <% } %>
+
+                        <img
+                          class="product-thumbnail-preview"
+                          data-thumbnail-preview
+                          alt="Preview icon baru"
+                          hidden
+                        >
+                      </div>
+
+                      <div class="product-upload-info">
+                        <strong>Icon varian</strong>
+                        <small>Gunakan icon JPG, PNG, atau WebP.</small>
+
+                        <div
+                          class="jyyr-file-picker"
+                          data-jyyr-file-picker
+                        >
+                          <input
+                            class="jyyr-native-file-input"
+                            data-jyyr-file-input
+                            data-thumbnail-input
+                            data-provider-variant-icon-file
+                            name="variantIcon"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                          >
+
+                          <div class="jyyr-file-picker-main">
+                            <span
+                              class="jyyr-file-name"
+                              data-jyyr-file-name
+                            >Belum ada file dipilih.</span>
+
+                            <button
+                              type="button"
+                              class="button button-secondary jyyr-file-trigger"
+                              data-jyyr-file-trigger
+                            >Pilih icon</button>
+                          </div>
+
+                          <button
+                            type="button"
+                            class="button button-secondary jyyr-file-clear"
+                            data-jyyr-file-clear
+                            hidden
+                          >Hapus</button>
                         </div>
-                      <% } %>
-                      <input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        data-provider-variant-icon-file
-                      >
-                      <progress
-                        value="0"
-                        max="100"
-                        hidden
-                        data-provider-variant-progress
-                      ></progress>
-                      <small class="muted" data-provider-variant-status></small>
+
+                        <progress
+                          value="0"
+                          max="100"
+                          hidden
+                          data-provider-variant-progress
+                        ></progress>
+                        <small
+                          class="muted"
+                          data-thumbnail-status
+                          data-provider-variant-status
+                        >Belum ada perubahan icon.</small>
+                      </div>
                     </div>
                   </article>
                 <% }) %>
               </section>
 
-              <button class="button button-primary" type="submit">
-                Simpan perubahan produk
-              </button>
-            </form>
+              <div class="product-modal-actions">
+                <button class="button button-primary" type="submit">
+                  Simpan perubahan produk
+                </button>
+              </div>
+              </form>
+            </div>
           <% } %>
 
           <section class="owner-product-list-panel">

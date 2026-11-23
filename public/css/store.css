@@ -39,7 +39,8 @@
 }
 
 
-.home-page .home-subcategory-header{
+.home-page .home-subcategory-header,
+.store-provider-catalog .home-subcategory-header{
   display:grid;
   grid-template-columns:minmax(0,max-content) minmax(12px,1fr) auto;
   grid-template-rows:auto auto;
@@ -47,7 +48,8 @@
   column-gap:12px;
   row-gap:8px;
 }
-.home-page .home-subcategory-heading{
+.home-page .home-subcategory-heading,
+.store-provider-catalog .home-subcategory-heading{
   grid-column:1;
   grid-row:2;
   display:flex;
@@ -56,7 +58,8 @@
   min-width:0;
   gap:7px;
 }
-.home-page .home-subcategory-heading h2{
+.home-page .home-subcategory-heading h2,
+.store-provider-catalog .home-subcategory-heading h2{
   font-size:17px;
   flex:0 1 auto;
   min-width:0;
@@ -65,18 +68,21 @@
   white-space:nowrap;
 }
 
-.home-page .home-subcategory-heading .category-name-with-icon>.icon{
+.home-page .home-subcategory-heading .category-name-with-icon>.icon,
+.store-provider-catalog .home-subcategory-heading .category-name-with-icon>.icon{
   width:24px;
   height:24px;
   flex:0 0 24px;
 }
 
-.home-page .home-parent-category-name .category-name-with-icon>.icon{
+.home-page .home-parent-category-name .category-name-with-icon>.icon,
+.store-provider-catalog .home-parent-category-name .category-name-with-icon>.icon{
   width:30px;
   height:30px;
   flex:0 0 30px;
 }
-.home-page .home-subcategory-count{
+.home-page .home-subcategory-count,
+.store-provider-catalog .home-subcategory-count{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -92,7 +98,8 @@
   white-space:nowrap;
   box-sizing:border-box;
 }
-.home-page .home-subcategory-rule{
+.home-page .home-subcategory-rule,
+.store-provider-catalog .home-subcategory-rule{
   grid-column:2;
   grid-row:2;
   min-width:12px;
@@ -108,8 +115,10 @@
   white-space:nowrap;
 }
 @media(max-width:380px){
-  .home-page .home-subcategory-header{gap:7px}
-  .home-page .home-subcategory-heading{gap:5px}
+  .home-page .home-subcategory-header,
+  .store-provider-catalog .home-subcategory-header{gap:7px}
+  .home-page .home-subcategory-heading,
+  .store-provider-catalog .home-subcategory-heading{gap:5px}
   .home-page .home-subcategory-header .text-link{font-size:15px}
 }
 
@@ -2915,7 +2924,8 @@
   }
 }
 
-.home-page .home-parent-category-name{
+.home-page .home-parent-category-name,
+.store-provider-catalog .home-parent-category-name{
   grid-column:1/-1;
   grid-row:1;
   min-width:0;

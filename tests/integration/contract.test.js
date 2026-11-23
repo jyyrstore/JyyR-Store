@@ -1562,8 +1562,8 @@ test('homepage displays products across active category groups and uncategorized
   assert.match(homeView,/<h2><span class="category-name-with-icon">[\s\S]*?<%= group\.category\.name %><\/span><\/span><\/h2>[\s\S]*?home-subcategory-count/);
   assert.match(homeView,/home-subcategory-count" aria-label="<%= group\.total %> item produk">[\s\S]*?<%= group\.total %>/);
   assert.match(homeStyles,/\.home-page \.home-subcategory-rule[\s\S]*?height:1px/);
-  assert.match(homeStyles,/\.home-page \.home-subcategory-count\{[\s\S]*?\bborder:1px solid var\(--border\);[\s\S]*?\}/);
-  assert.match(homeStyles,/\.home-page \.home-subcategory-count\{(?=[^{}]*border-radius:999px;)(?=[^{}]*padding:2px 7px;)[^{}]*\}/);
+  assert.match(homeStyles,/\.home-page \.home-subcategory-count,\s*\.store-provider-catalog \.home-subcategory-count\{[\s\S]*?\bborder:1px solid var\(--border\);[\s\S]*?\}/);
+  assert.match(homeStyles,/\.home-page \.home-subcategory-count,\s*\.store-provider-catalog \.home-subcategory-count\{(?=[^{}]*border-radius:999px;)(?=[^{}]*padding:2px 7px;)[^{}]*\}/);
   assert.match(homeView,/group\.products\.forEach\(product=>/);
   assert.match(homeView,/productCardImageLoading:homepageProductIndex===1\?'eager':'lazy'/);
   assert.match(homeView,/productCardImageFetchPriority:homepageProductIndex===1\?'high':null/);
@@ -4000,4 +4000,70 @@ test('Product detail hides only the duplicate picker label',()=>{
   assert.match(view,/<span data-jyyr-select-label hidden>/);
   assert.match(view,/<p class="detail-selected-variant" data-product-selected-variant/);
   assert.match(view,/<strong><%= v\.label %><\/strong>/);
+});
+
+test('provider catalog categories reuse homepage category hierarchy styles',()=>{
+  const storeView=fs.readFileSync(
+    path.join(root,'views/pages/store.ejs'),
+    'utf8'
+  );
+  const storeStyles=fs.readFileSync(
+    path.join(root,'public/css/store.css'),
+    'utf8'
+  );
+
+  assert.match(
+    storeView,
+    /class="store-provider-root section" aria-label="Kategori <%= root\.name %>"/
+  );
+  assert.match(
+    storeView,
+    /class="section-header home-subcategory-header"/
+  );
+  assert.match(
+    storeView,
+    /class="home-parent-category-name"[\s\S]*?root\.name/
+  );
+  assert.match(
+    storeView,
+    /class="home-subcategory-heading"[\s\S]*?<h2>[\s\S]*?category\.name/
+  );
+  assert.match(
+    storeView,
+    /class="home-subcategory-count" aria-label="<%= category\.products\.length %> produk"><%= category\.products\.length %><\/span>/
+  );
+  assert.match(storeView,/category\.products\.forEach\(product=>/);
+
+  assert.match(
+    storeStyles,
+    /\.home-page \.home-subcategory-header,\s*\.store-provider-catalog \.home-subcategory-header\{\s*display:grid;/
+  );
+  assert.match(
+    storeStyles,
+    /\.home-page \.home-parent-category-name,\s*\.store-provider-catalog \.home-parent-category-name\{[\s\S]*?font-size:20px/
+  );
+  assert.match(
+    storeStyles,
+    /\.home-page \.home-subcategory-heading h2,\s*\.store-provider-catalog \.home-subcategory-heading h2\{[\s\S]*?font-size:17px/
+  );
+  assert.match(
+    storeStyles,
+    /\.home-page \.home-subcategory-heading \.category-name-with-icon>\.icon,\s*\.store-provider-catalog \.home-subcategory-heading \.category-name-with-icon>\.icon\{\s*width:24px;[\s\S]*?height:24px;/
+  );
+  assert.match(
+    storeStyles,
+    /\.home-page \.home-parent-category-name \.category-name-with-icon>\.icon,\s*\.store-provider-catalog \.home-parent-category-name \.category-name-with-icon>\.icon\{\s*width:30px;[\s\S]*?height:30px;/
+  );
+  assert.match(
+    storeStyles,
+    /\.home-page \.home-subcategory-count,\s*\.store-provider-catalog \.home-subcategory-count\{[\s\S]*?padding:2px 7px;[\s\S]*?border-radius:999px/
+  );
+  assert.match(
+    storeStyles,
+    /\.home-page \.home-subcategory-rule,\s*\.store-provider-catalog \.home-subcategory-rule\{[\s\S]*?height:1px/
+  );
+  assert.match(
+    storeStyles,
+    /@media\(max-width:380px\)\{[\s\S]*?\.home-page \.home-subcategory-header,\s*\.store-provider-catalog \.home-subcategory-header\{gap:7px\}[\s\S]*?\.home-page \.home-subcategory-heading,\s*\.store-provider-catalog \.home-subcategory-heading\{gap:5px\}/
+  );
 });

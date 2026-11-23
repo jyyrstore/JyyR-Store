@@ -158,21 +158,26 @@
       </div>
 
       <% providerCatalog.forEach(root=>{ %>
-        <section class="store-provider-root section">
-          <div class="section-header">
-            <h2 class="page-title-with-icon">
-              <%- icon(root.icon_key||'premium-app','icon page-title-icon') %>
-              <span><%= root.name %></span>
-            </h2>
-          </div>
-
+        <section class="store-provider-root section" aria-label="Kategori <%= root.name %>">
           <% root.subcategories.forEach(category=>{ %>
             <section class="store-provider-category">
-              <div class="section-header">
-                <h3 class="page-title-with-icon">
-                  <%- icon(category.icon_key||root.icon_key||'premium-app','icon page-title-icon') %>
-                  <span><%= category.name %></span>
-                </h3>
+              <div class="section-header home-subcategory-header">
+                <span class="home-parent-category-name">
+                  <span class="category-name-with-icon">
+                    <%- icon(root.icon_key||'premium-app','icon category-inline-icon') %>
+                    <span><%= root.name %></span>
+                  </span>
+                </span>
+                <div class="home-subcategory-heading">
+                  <h2>
+                    <span class="category-name-with-icon">
+                      <%- icon(category.icon_key||root.icon_key||'premium-app','icon category-inline-icon') %>
+                      <span><%= category.name %></span>
+                    </span>
+                  </h2>
+                  <span class="home-subcategory-count" aria-label="<%= category.products.length %> produk"><%= category.products.length %></span>
+                </div>
+                <span class="home-subcategory-rule" aria-hidden="true"></span>
               </div>
 
               <div class="product-grid">

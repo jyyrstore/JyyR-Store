@@ -615,7 +615,12 @@ test('thumbnail change handler restores the existing cover when no new file is s
 
   assert.match(
     pages,
-    /const current=form\?\.querySelector\('\[data-current-thumbnail\]'\)/
+    /const scope=input\.closest\('\[data-provider-variant\]'\)\|\|input\.closest\('form'\)/
+  );
+
+  assert.match(
+    pages,
+    /const current=scope\?\.querySelector\('\[data-current-thumbnail\]'\)/
   );
 
   assert.match(

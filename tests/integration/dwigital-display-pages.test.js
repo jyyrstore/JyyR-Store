@@ -77,6 +77,7 @@ test('Owner provider-products page uses existing protected owner routing',()=>{
   const routes=read('src/routes/index.js');
   const sidebar=read('views/partials/sidebar.ejs');
   const view=read('views/owner/index.ejs');
+  const browser=read('public/js/pages.js');
 
   assert.match(routes,/provider-products/);
   assert.match(sidebar,/Produk Provider/);
@@ -90,45 +91,110 @@ test('Owner provider-products page uses existing protected owner routing',()=>{
     'Provider editor form must not restore the large wrapper panel'
   );
 
-  const settingsPanelStart = view.indexOf(
-    '<div class="panel">',
-    view.indexOf('data-provider-product-form')
+  const providerEditorStart = view.indexOf(
+    '<div class="owner-product-editor-page" data-owner-product-page="edit_produk">'
   );
   const providerVariantsStart = view.indexOf(
     '<% if(!(providerProduct.variants||[]).length){ %>',
-    settingsPanelStart
+    providerEditorStart
   );
 
   assert.ok(
-    settingsPanelStart >= 0 &&
-    providerVariantsStart > settingsPanelStart,
-    'Provider settings panel and variant list must exist'
+    providerEditorStart >= 0 &&
+    providerVariantsStart > providerEditorStart,
+    'Provider editor wrapper and variant list must exist'
   );
 
-  const settingsPanelMarkup = view.slice(
-    settingsPanelStart,
+  const providerEditorMarkup = view.slice(
+    providerEditorStart,
     providerVariantsStart
   );
 
   assert.match(
-    settingsPanelMarkup,
-    /^<div class="panel">\s*<div class="section-header">[\s\S]*?<div class="eyebrow">Pengaturan provider<\/div>[\s\S]*?ID provider:[\s\S]*?<h3>1\. Identitas dan tampilan toko<\/h3>[\s\S]*?<h3>2\. Cover produk<\/h3>[\s\S]*?<h3>3\. Varian dan harga<\/h3>[\s\S]*?Margin dihitung otomatis[\s\S]*?<\/p>\s*<\/div>\s*<\/section>\s*<\/div>\s*<section class="stack-form">\s*$/,
-    'Settings panel must close after section 3 description and before standalone variant cards'
+    providerEditorMarkup,
+    /^<div class="owner-product-editor-page" data-owner-product-page="edit_produk">\s*<form\s+class="product-form-modal"[\s\S]*?<header class="product-modal-head">/
+  );
+  assert.match(providerEditorMarkup, /class="product-modal-section"/);
+  assert.match(providerEditorMarkup, /class="product-modal-section-title"/);
+  assert.match(providerEditorMarkup, /class="product-modal-grid"/);
+  assert.match(providerEditorMarkup, /class="product-thumbnail-box"/);
+  assert.match(providerEditorMarkup, /class="product-upload-info"/);
+
+  assert.ok(
+    providerEditorMarkup.includes('data-jyyr-file-picker'),
+    'Provider cover must use the canonical file picker'
+  );
+  assert.ok(
+    providerEditorMarkup.includes('data-thumbnail-input'),
+    'Provider cover must reuse the canonical thumbnail preview handler'
+  );
+  assert.ok(
+    providerEditorMarkup.includes('data-provider-cover-progress') &&
+    providerEditorMarkup.includes('data-provider-cover-status'),
+    'Provider cover upload progress and status hooks must remain'
   );
 
   assert.match(
     view.slice(providerVariantsStart),
-    /<article\s+class="panel stack-form"\s+data-provider-variant/,
-    'Each provider variant must retain its own card'
-  );
-  assert.equal(
-    providerForm[1].split(/\s+/).includes('panel'),
-    false,
-    'Provider edit form must not render a large panel behind the cards'
+    /<article\s+class="product-modal-section stack-form"\s+data-provider-variant/
   );
   assert.match(
-    view,
-    /<article\s+class="panel stack-form"\s+data-provider-variant/
+    view.slice(providerVariantsStart),
+    /class="product-modal-grid"/
+  );
+  assert.match(
+    view.slice(providerVariantsStart),
+    /class="product-modal-actions"/
+  );
+
+  const providerVariantMarkup = view.slice(providerVariantsStart);
+
+  assert.ok(
+    providerVariantMarkup.includes('data-jyyr-file-picker'),
+    'Provider variant icon must use the canonical file picker'
+  );
+  assert.ok(
+    providerVariantMarkup.includes('data-provider-variant-icon-file'),
+    'Provider variant icon input hook must remain'
+  );
+  assert.ok(
+    providerVariantMarkup.includes('data-provider-variant-progress') &&
+    providerVariantMarkup.includes('data-provider-variant-status'),
+    'Provider variant upload progress and status hooks must remain'
+  );
+
+  const providerVariantCardStart=providerVariantMarkup.indexOf('<article');
+  const providerVariantCardEnd=providerVariantMarkup.indexOf(
+    '</article>',
+    providerVariantCardStart
+  );
+
+  assert.ok(
+    providerVariantCardStart>=0 &&
+    providerVariantCardEnd>providerVariantCardStart,
+    'Provider variant card must exist'
+  );
+
+  const providerVariantCard=providerVariantMarkup.slice(
+    providerVariantCardStart,
+    providerVariantCardEnd
+  );
+
+  assert.ok(
+    providerVariantCard.includes('data-thumbnail-stage') &&
+    providerVariantCard.includes('data-thumbnail-input') &&
+    providerVariantCard.includes('data-current-thumbnail') &&
+    providerVariantCard.includes('data-thumbnail-preview') &&
+    providerVariantCard.includes('data-thumbnail-empty') &&
+    providerVariantCard.includes('data-thumbnail-status'),
+    'Provider variant icon must reuse scoped thumbnail preview'
+  );
+
+  assert.ok(
+    browser.includes(
+      "const scope=input.closest('[data-provider-variant]')||input.closest('form');"
+    ),
+    'Thumbnail preview must target its provider variant card'
   );
   assert.match(view,/data-owner-provider-category-edit/);
   assert.match(view,/data-provider-base-price/);

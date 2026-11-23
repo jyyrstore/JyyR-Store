@@ -1938,11 +1938,11 @@
     const input=e.target.closest('[data-thumbnail-input]');
     if(!input)return;
     const file=input.files?.[0];
-    const form=input.closest('form');
-    const current=form?.querySelector('[data-current-thumbnail]');
-    const preview=form?.querySelector('[data-thumbnail-preview]');
-    const empty=form?.querySelector('[data-thumbnail-empty]');
-    const status=form?.querySelector('[data-thumbnail-status]');
+    const scope=input.closest('[data-provider-variant]')||input.closest('form');
+    const current=scope?.querySelector('[data-current-thumbnail]');
+    const preview=scope?.querySelector('[data-thumbnail-preview]');
+    const empty=scope?.querySelector('[data-thumbnail-empty]');
+    const status=scope?.querySelector('[data-thumbnail-status]');
 
     if(!file){
       if(preview)preview.hidden=true;
