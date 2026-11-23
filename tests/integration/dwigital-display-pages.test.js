@@ -35,6 +35,18 @@ test('Dwigital card opens detail page with public variants and retail prices',()
   assert.match(catalogView,/providerCatalog\.forEach\(root=>/);
   assert.match(catalogView,/category\.products\.forEach\(product=>/);
   assert.match(catalogView,/product\.display_name/);
+
+  assert.match(
+    catalogView,
+    /<span class="product-title"><%= product\.display_name %><\/span>/,
+    'Dwigital title must reuse regular product card typography'
+  );
+
+  assert.doesNotMatch(
+    catalogView,
+    /<h3 class="product-title">/,
+    'Dwigital card must not use heading defaults'
+  );
   assert.doesNotMatch(catalogView,/product\.variants\.forEach/);
   assert.doesNotMatch(catalogView,/variant\.display_name|variant\.retail_price/);
   assert.match(catalogView,/href="\/store\/dwigital\/<%= product\.provider_type %>\/<%= encodeURIComponent\(product\.provider_product_id\) %>"/);
@@ -68,7 +80,56 @@ test('Owner provider-products page uses existing protected owner routing',()=>{
 
   assert.match(routes,/provider-products/);
   assert.match(sidebar,/Produk Provider/);
-  assert.match(view,/data-provider-product-form/);
+  const providerForm=view.match(
+    /<form\s+class="([^"]*)"\s+data-provider-product-form/
+  );
+  assert.ok(providerForm,'Provider product edit form must exist');
+  assert.equal(
+    providerForm[1].split(/\s+/).includes('panel'),
+    false,
+    'Provider editor form must not restore the large wrapper panel'
+  );
+
+  const settingsPanelStart = view.indexOf(
+    '<div class="panel">',
+    view.indexOf('data-provider-product-form')
+  );
+  const providerVariantsStart = view.indexOf(
+    '<% if(!(providerProduct.variants||[]).length){ %>',
+    settingsPanelStart
+  );
+
+  assert.ok(
+    settingsPanelStart >= 0 &&
+    providerVariantsStart > settingsPanelStart,
+    'Provider settings panel and variant list must exist'
+  );
+
+  const settingsPanelMarkup = view.slice(
+    settingsPanelStart,
+    providerVariantsStart
+  );
+
+  assert.match(
+    settingsPanelMarkup,
+    /^<div class="panel">\s*<div class="section-header">[\s\S]*?<div class="eyebrow">Pengaturan provider<\/div>[\s\S]*?ID provider:[\s\S]*?<h3>1\. Identitas dan tampilan toko<\/h3>[\s\S]*?<h3>2\. Cover produk<\/h3>[\s\S]*?<h3>3\. Varian dan harga<\/h3>[\s\S]*?Margin dihitung otomatis[\s\S]*?<\/p>\s*<\/div>\s*<\/section>\s*<\/div>\s*<section class="stack-form">\s*$/,
+    'Settings panel must close after section 3 description and before standalone variant cards'
+  );
+
+  assert.match(
+    view.slice(providerVariantsStart),
+    /<article\s+class="panel stack-form"\s+data-provider-variant/,
+    'Each provider variant must retain its own card'
+  );
+  assert.equal(
+    providerForm[1].split(/\s+/).includes('panel'),
+    false,
+    'Provider edit form must not render a large panel behind the cards'
+  );
+  assert.match(
+    view,
+    /<article\s+class="panel stack-form"\s+data-provider-variant/
+  );
   assert.match(view,/data-owner-provider-category-edit/);
   assert.match(view,/data-provider-base-price/);
   assert.match(view,/data-provider-margin/);

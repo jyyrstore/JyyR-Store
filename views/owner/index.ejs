@@ -280,21 +280,21 @@
 
           <% if(providerProduct){ %>
             <form
-              class="panel stack-form"
+              class="stack-form"
               data-provider-product-form
               data-provider-type="<%= providerType %>"
               data-product-id="<%= providerProduct.provider_product_id %>"
             >
-              <div class="section-header">
-                <div>
-                  <div class="eyebrow">Pengaturan provider</div>
-                  <h2>Edit <%= providerProduct.display_name %></h2>
-                  <p class="muted">
-                    ID provider: <%= providerProduct.provider_product_id %>
-                  </p>
+              <div class="panel">
+                <div class="section-header">
+                  <div>
+                    <div class="eyebrow">Pengaturan provider</div>
+                    <h2>Edit <%= providerProduct.display_name %></h2>
+                    <p class="muted">
+                      ID provider: <%= providerProduct.provider_product_id %>
+                    </p>
+                  </div>
                 </div>
-              </div>
-
               <section class="stack-form">
                 <div>
                   <h3>1. Identitas dan tampilan toko</h3>
@@ -422,7 +422,10 @@
                     dari harga jual dikurangi harga modal.
                   </p>
                 </div>
+              </section>
+              </div>
 
+              <section class="stack-form">
                 <% if(!(providerProduct.variants||[]).length){ %>
                   <div class="empty-state compact">
                     <h3>Belum ada varian</h3>
