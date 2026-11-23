@@ -1,0 +1,91 @@
+<section class="page-shell">
+  <div class="page-header">
+    <a class="button button-secondary" href="/store">
+      <%- icon('arrow-left') %>
+      Kembali ke Katalog Digital
+    </a>
+  </div>
+
+  <div class="product-detail dwigital-product-detail">
+    <div class="detail-media">
+      <div class="detail-image-frame">
+        <% if(providerProduct.cover_url){ %>
+          <img
+            class="detail-image"
+            src="<%= providerProduct.cover_url %>"
+            alt="Cover <%= providerProduct.display_name %>"
+            loading="eager"
+            decoding="async"
+          >
+        <% } else { %>
+          <div class="image-fallback">
+            <%- icon('image') %>
+            <span>Gambar tidak tersedia</span>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="detail-copy">
+      <p class="eyebrow">
+        <%= providerProduct.category_parent_name||'Katalog Digital' %>
+        ·
+        <%= providerProduct.category_name %>
+      </p>
+
+      <div class="detail-title-row">
+        <h1><%= providerProduct.display_name %></h1>
+      </div>
+
+      <p class="muted">
+        Pilih varian yang sesuai dan lihat harga jual untuk setiap pilihan.
+      </p>
+    </div>
+
+    <section class="detail-variant-card" aria-labelledby="dwigital-variant-title">
+      <h2 class="detail-variant-title" id="dwigital-variant-title">
+        Pilihan Varian &amp; Harga
+      </h2>
+
+      <div
+        class="detail-variant-options"
+        data-product-variant-picker
+        role="list"
+        aria-label="Daftar varian dan harga"
+      >
+        <% providerProduct.variants.forEach(variant=>{ %>
+          <div class="product-variant-card-option" role="listitem">
+            <span class="product-variant-option-icon" aria-hidden="true">
+              <% if(variant.icon_url){ %>
+                <img
+                  src="<%= variant.icon_url %>"
+                  alt=""
+                  width="38"
+                  height="38"
+                  loading="lazy"
+                  decoding="async"
+                >
+              <% } else { %>
+                <%- icon('package') %>
+              <% } %>
+            </span>
+
+            <span class="product-variant-card-details">
+              <strong><%= variant.display_name||variant.source_name||'Varian' %></strong>
+              <span class="product-variant-card-price">
+                <%= formatIDR(variant.retail_price) %>
+              </span>
+            </span>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+  </div>
+
+  <div class="product-detail-info-cta">
+    <p>
+      Temukan pilihan digital lainnya di
+      <a class="product-detail-category-link" href="/store">Katalog Digital</a>.
+    </p>
+  </div>
+</section>

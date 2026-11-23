@@ -126,6 +126,7 @@ const productReviewSchema=z.object({
 const pageRouter=express.Router();
 pageRouter.get('/',asyncHandler(page.home));
 pageRouter.get('/store',asyncHandler(page.store));
+pageRouter.get('/store/dwigital/:type/:productId',asyncHandler(page.dwigitalProductDetail));
 pageRouter.get('/product/:slug',asyncHandler(page.productDetail));
 pageRouter.get('/search',asyncHandler(page.search));
 pageRouter.get('/services',asyncHandler(page.servicesPage));

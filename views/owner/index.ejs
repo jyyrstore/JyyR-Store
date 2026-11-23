@@ -533,17 +533,7 @@
             </form>
           <% } %>
 
-          <section class="panel owner-product-list-panel">
-            <div class="section-header">
-              <div>
-                <h2>Daftar produk provider</h2>
-                <p class="muted">
-                  Pilih tombol Edit pada kartu produk untuk mengatur tampilannya,
-                  harga jual, varian, dan media.
-                </p>
-              </div>
-            </div>
-
+          <section class="owner-product-list-panel">
             <% if(!(providerProducts||[]).length){ %>
               <div class="empty-state compact">
                 <%- icon('shop-twotone') %>
@@ -561,29 +551,34 @@
                     '&product='+
                     encodeURIComponent(product.provider_product_id);
                 %>
-                  <article class="owner-product-card">
+                  <a
+                    class="owner-product-card"
+                    href="<%= editUrl %>"
+                    aria-label="Edit <%= product.display_name %>"
+                  >
                     <div class="owner-product-card-main">
                       <div class="owner-product-card-cover">
-                        <div class="owner-product-card-cover-fallback" aria-hidden="true">
-                          <%- icon(providerCategory?.icon_key||'category-management') %>
-                        </div>
+                        <% if(product.cover_path){ %>
+                          <img
+                            src="<%= assetUrl(publicAssetBucket,product.cover_path) %>"
+                            alt="Cover <%= product.display_name %>"
+                            loading="lazy"
+                            decoding="async"
+                          >
+                        <% } else { %>
+                          <div class="owner-product-card-cover-fallback" aria-hidden="true">
+                            <%- icon(providerCategory?.icon_key||'category-management') %>
+                          </div>
+                        <% } %>
                       </div>
 
                       <div class="owner-product-card-content">
                         <div class="owner-product-card-heading">
                           <h3 class="owner-product-card-title">
-                            <%= product.display_name %>
+                            <%= product.display_name %> <small class="muted">ID provider: <%= product.provider_product_id %></small>
                           </h3>
-                          <a
-                            class="button button-secondary button-small"
-                            href="<%= editUrl %>"
-                            aria-label="Edit <%= product.display_name %>"
-                          >Edit</a>
                         </div>
 
-                        <small class="muted">
-                          ID provider: <%= product.provider_product_id %>
-                        </small>
 
                         <div class="owner-product-card-metrics">
                           <div
@@ -631,7 +626,7 @@
                         </div>
                       </div>
                     </div>
-                  </article>
+                  </a>
                 <% }) %>
               </div>
             <% } %>
@@ -644,17 +639,7 @@
             }) %>
           </section>
 
-          <section class="panel">
-            <div class="section-header">
-              <div>
-                <h2>Kategori tampilan</h2>
-                <p class="muted">
-                  Kategori utama Aplikasi Premium dan Game memiliki subkategori.
-                  Atur nama, icon, urutan, serta statusnya di sini.
-                </p>
-              </div>
-            </div>
-
+          <section>
             <% if(!(providerCategories||[]).length){ %>
               <div class="empty-state compact">
                 <h3>Belum ada kategori</h3>

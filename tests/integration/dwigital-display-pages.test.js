@@ -9,14 +9,56 @@ function read(relative){
   return fs.readFileSync(path.join(root,relative),'utf8');
 }
 
-test('store renders provider catalog separately using existing service cards',()=>{
+test('Dwigital card opens detail page with public variants and retail prices',()=>{
   const controller=read('src/controllers/page.controller.js');
-  const view=read('views/pages/store.ejs');
+  const routes=read('src/routes/index.js');
+  const repository=read('src/repositories/dwigital-display.repository.js');
+  const storeView=read('views/pages/store.ejs');
 
-  assert.match(controller,/listPublicCatalog/);
-  assert.match(view,/providerCatalog/);
-  assert.match(view,/class="service-grid"/);
-  assert.match(view,/class="service-card"/);
+  const homeStart=controller.indexOf('async function home(');
+  const storeStart=controller.indexOf('async function store(',homeStart);
+  const detailStart=controller.indexOf('async function productDetail(',storeStart);
+
+  assert.ok(homeStart>=0 && storeStart>homeStart && detailStart>storeStart);
+
+  const homeController=controller.slice(homeStart,storeStart);
+  const storeController=controller.slice(storeStart,detailStart);
+
+  assert.match(homeController,/products\.homepageHighlights\(6\)/);
+  assert.match(storeController,/displayRepo\.listPublicCatalog\(\)/);
+  assert.doesNotMatch(storeController,/homepageHighlights/);
+
+  const catalogStart=storeView.indexOf('<section class="store-provider-catalog"');
+  assert.ok(catalogStart>=0);
+
+  const catalogView=storeView.slice(catalogStart);
+  assert.match(catalogView,/providerCatalog\.forEach\(root=>/);
+  assert.match(catalogView,/category\.products\.forEach\(product=>/);
+  assert.match(catalogView,/product\.display_name/);
+  assert.doesNotMatch(catalogView,/product\.variants\.forEach/);
+  assert.doesNotMatch(catalogView,/variant\.display_name|variant\.retail_price/);
+  assert.match(catalogView,/href="\/store\/dwigital\/<%= product\.provider_type %>\/<%= encodeURIComponent\(product\.provider_product_id\) %>"/);
+
+  assert.match(repository,/async function findProviderProduct\(type,providerProductId,\{publicOnly=false\}=\{\}\)/);
+  assert.match(repository,/product\.is_visible=true/);
+  assert.match(repository,/category\.is_active=true/);
+  assert.match(repository,/root\.is_active=true/);
+  assert.match(repository,/variant\.is_visible=true\s+AND variant\.retail_price IS NOT NULL/);
+  assert.match(repository,/provider_type:\s*row\.provider_type/);
+  assert.match(repository,/provider_product_id:\s*row\.provider_product_id/);
+
+  assert.match(routes,/pageRouter\.get\('\/store\/dwigital\/:type\/:productId',asyncHandler\(page\.dwigitalProductDetail\)\)/);
+  assert.match(controller,/async function dwigitalProductDetail\(req,res,next\)/);
+  assert.match(controller,/displayRepo\.findProviderProduct\(\s*type,\s*productId,\s*\{\s*publicOnly\s*:\s*true\s*\}\s*\)/);
+
+  const detailPath=path.join(root,'views/pages/dwigital-product-detail.ejs');
+  assert.ok(fs.existsSync(detailPath),'Halaman detail Dwigital harus tersedia');
+
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+  assert.match(detailView,/providerProduct\.variants\.forEach/);
+  assert.match(detailView,/variant\.display_name/);
+  assert.match(detailView,/formatIDR\(variant\.retail_price\)/);
+  assert.doesNotMatch(detailView,/data-buy-now|data-add-cart|product-purchase-sheet/);
 });
 
 test('Owner provider-products page uses existing protected owner routing',()=>{
@@ -64,6 +106,9 @@ test('Owner provider-product listing initializes an empty editor local',()=>{
 
 test('Owner provider-products page follows canonical Owner product UI',()=>{
   const view=read('views/owner/index.ejs');
+  const repository=read('src/repositories/dwigital-display.repository.js');
+  const browser=read('public/js/pages.js');
+  const responsive=read('public/css/responsive.css');
 
   const start=view.indexOf("else if(ownerSection==='provider-products'){");
   const end=view.indexOf("else if(ownerSection==='products'){",start);
@@ -72,13 +117,177 @@ test('Owner provider-products page follows canonical Owner product UI',()=>{
 
   const providerView=view.slice(start,end);
 
+  // JYYR_PROVIDER_CARD_DIRECT_EDIT_ASSERTIONS
+  const cardClassIndex=providerView.indexOf(
+    'class="owner-product-card"'
+  );
+  const directCardStart=providerView.lastIndexOf('<a',cardClassIndex);
+  const directCardOpenEnd=providerView.indexOf('>',cardClassIndex);
+  const directCardEnd=providerView.indexOf('</a>',directCardOpenEnd);
+
+  assert.ok(
+    directCardStart>=0 &&
+    directCardOpenEnd>directCardStart &&
+    directCardEnd>directCardOpenEnd,
+    'Provider product card must be a direct edit link'
+  );
+
+  const directCardOpening=providerView.slice(
+    directCardStart,
+    directCardOpenEnd+1
+  );
+
+  assert.ok(directCardOpening.startsWith('<a'));
+  assert.ok(directCardOpening.includes('class="owner-product-card"'));
+
+  assert.ok(
+    directCardOpening.includes('href="<%='),
+    'Provider card anchor must start its href with the EJS expression'
+  );
+
+  const directCard=providerView.slice(
+    directCardStart,
+    directCardEnd+4
+  );
+
+  assert.ok(
+    directCard.includes('editUrl %>"'),
+    'Provider card href must use editUrl'
+  );
+  assert.equal(directCard.includes('data-owner-product-card'),false);
+  assert.equal(directCard.includes('data-owner-product-actions'),false);
+  assert.equal(directCard.slice(1).includes('<a'),false);
+
+  assert.equal(providerView.includes('data-owner-product-actions'),false);
+  assert.equal(providerView.includes('data-owner-product-card'),false);
+
+  assert.ok(
+    browser.includes('function openOwnerProductActionsSheet(card)'),
+    'Canonical product action sheet remains available on /owner/products'
+  );
+
+  const directCardCssStart=responsive.indexOf(
+    '.owner-page .owner-product-card{'
+  );
+  const directCardCssEnd=responsive.indexOf('}',directCardCssStart);
+
+  assert.ok(
+    directCardCssStart>=0 && directCardCssEnd>directCardCssStart,
+    'Canonical owner card style exists'
+  );
+
+  const directCardCss=responsive.slice(
+    directCardCssStart,
+    directCardCssEnd+1
+  );
+
+  assert.ok(directCardCss.includes('color:inherit;'));
+  assert.ok(directCardCss.includes('text-decoration:none;'));
+
+
+  // JYYR_PROVIDER_LIST_LAYOUT_COLOR_ASSERTIONS
+  assert.equal(
+    providerView.includes('<h2>Daftar produk provider</h2>'),
+    false
+  );
+  assert.equal(
+    providerView.includes('Pilih tombol Edit pada kartu produk'),
+    false
+  );
+  assert.equal(
+    providerView.includes('<h2>Kategori tampilan</h2>'),
+    false
+  );
+  assert.equal(
+    providerView.includes('Kategori utama Aplikasi Premium dan Game memiliki subkategori.'),
+    false
+  );
+  assert.equal(
+    providerView.includes('Atur nama, icon, urutan, serta statusnya di sini.'),
+    false
+  );
+
+  const providerListStart=providerView.indexOf(
+    '<section class="owner-product-list-panel">'
+  );
+  const providerListEnd=providerView.indexOf('</section>',providerListStart);
+
+  assert.ok(providerListStart>=0 && providerListEnd>providerListStart);
+
+  const providerList=providerView.slice(
+    providerListStart,
+    providerListEnd
+  );
+
+  assert.equal(providerList.includes('class="panel"'),false);
+
+  const categoryIf=providerView.indexOf(
+    '<% if(!(providerCategories||[]).length){ %>'
+  );
+  const categoryStart=providerView.lastIndexOf('<section',categoryIf);
+  const categoryTagEnd=providerView.indexOf('>',categoryStart);
+
+  assert.ok(categoryIf>0 && categoryStart>=0 && categoryTagEnd>categoryStart);
+  assert.equal(
+    providerView.slice(categoryStart,categoryTagEnd+1),
+    '<section>'
+  );
+
+  const titleStart=providerView.indexOf(
+    '<h3 class="owner-product-card-title">'
+  );
+  const providerId=providerView.indexOf(
+    'ID provider: <%= product.provider_product_id %>'
+  );
+  const titleEnd=providerView.indexOf('</h3>',titleStart);
+
+  assert.ok(
+    titleStart>=0 && providerId>titleStart && titleEnd>providerId,
+    'Provider ID must remain inside the product title'
+  );
+
+  const cardStart=responsive.indexOf(
+    '.owner-page .owner-product-card{'
+  );
+  const cardEnd=responsive.indexOf('}',cardStart);
+
+  assert.ok(cardStart>=0 && cardEnd>cardStart);
+
+  const cardRule=responsive.slice(cardStart,cardEnd+1);
+
+  assert.ok(
+    cardRule.includes('background:var(--surface);'),
+    'Canonical product card must use the surface token'
+  );
+
   assert.match(providerView,/class="owner-filter-bar"/);
   assert.match(providerView,/owner-filter-field owner-filter-search/);
   assert.match(providerView,/owner-product-card-grid/);
   assert.match(providerView,/class="owner-product-card"/);
+  assert.match(providerView,/owner-product-card-title/);
+  assert.match(providerView,/owner-product-card-metrics/);
+  assert.doesNotMatch(providerView,/data-owner-product-card/);
+  assert.ok(directCard.includes('aria-label="Edit '), 'Direct edit link must remain accessible');
+  assert.doesNotMatch(providerView,/<template data-owner-product-actions>/);
+  assert.doesNotMatch(providerView,/owner-provider-product-card-actions/);
+  assert.match(providerView,/assetUrl\(publicAssetBucket,product\.cover_path\)/);
   assert.doesNotMatch(providerView,/<table>/);
   assert.match(providerView,/owner-categories-grid/);
   assert.match(providerView,/owner-category-card/);
+
+  const listStart=repository.indexOf('async function listProviderProducts(');
+  const listEnd=repository.indexOf('async function countProviderProducts(',listStart);
+
+  assert.ok(listStart>=0 && listEnd>listStart,'Provider listing query exists');
+
+  const listing=repository.slice(listStart,listEnd);
+  assert.match(listing,/product\.cover_path/);
+  assert.match(listing,/GROUP BY[\s\S]*product\.cover_path/);
+
+  assert.ok(browser.includes("const swipe=event.target.closest('[data-owner-product-swipe]');"));
+  assert.ok(browser.includes("const card=swipe.querySelector('[data-owner-product-card]');"));
+  assert.ok(browser.includes("if(swipe.classList.contains('is-delete-revealed')){"));
+  assert.doesNotMatch(responsive,/owner-provider-product-card-actions/);
 
   assert.match(providerView,/data-provider-product-form/);
   assert.match(providerView,/data-provider-variant-price/);

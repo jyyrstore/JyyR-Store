@@ -29,6 +29,16 @@
 
 .product-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;align-items:stretch}
 
+.product-card.provider-product-card{
+  color:var(--text);
+  text-decoration:none;
+}
+.product-card.provider-product-card:focus-visible{
+  outline:2px solid var(--primary-2);
+  outline-offset:2px;
+}
+
+
 .home-page .home-subcategory-header{
   display:grid;
   grid-template-columns:minmax(0,max-content) minmax(12px,1fr) auto;

@@ -148,64 +148,66 @@
     <section class="store-provider-catalog" aria-labelledby="provider-catalog-title">
       <div class="page-header">
         <div>
-          <h2 id="provider-catalog-title">Katalog Digital</h2>
+          <h2 id="provider-catalog-title" class="page-title-with-icon">
+            <%- icon('shop-twotone','icon page-title-icon') %>
+            <span>Katalog Digital</span>
+          </h2>
           <p>Produk premium dan game dari katalog provider.</p>
           <p class="muted">Informasi katalog saja. Pemesanan provider belum terhubung.</p>
         </div>
       </div>
 
       <% providerCatalog.forEach(root=>{ %>
-        <section class="store-provider-root">
-          <div class="page-header">
-            <div>
-              <h2 class="page-title-with-icon">
-                <%- icon(root.icon_key||'premium-app','icon page-title-icon') %>
-                <span><%= root.name %></span>
-              </h2>
-            </div>
+        <section class="store-provider-root section">
+          <div class="section-header">
+            <h2 class="page-title-with-icon">
+              <%- icon(root.icon_key||'premium-app','icon page-title-icon') %>
+              <span><%= root.name %></span>
+            </h2>
           </div>
 
           <% root.subcategories.forEach(category=>{ %>
             <section class="store-provider-category">
-              <h3 class="page-title-with-icon">
-                <%- icon(category.icon_key||root.icon_key||'premium-app','icon page-title-icon') %>
-                <span><%= category.name %></span>
-              </h3>
+              <div class="section-header">
+                <h3 class="page-title-with-icon">
+                  <%- icon(category.icon_key||root.icon_key||'premium-app','icon page-title-icon') %>
+                  <span><%= category.name %></span>
+                </h3>
+              </div>
 
-              <div class="service-grid">
+              <div class="product-grid">
                 <% category.products.forEach(product=>{ %>
-                  <article class="service-card">
-                    <div>
+                  <a
+                    class="product-card provider-product-card"
+                    href="/store/dwigital/<%= product.provider_type %>/<%= encodeURIComponent(product.provider_product_id) %>"
+                    aria-label="Lihat detail <%= product.display_name %>"
+                  >
+                    <div class="product-thumb-wrap">
                       <% if(product.cover_url){ %>
                         <img
+                          class="product-thumb"
                           src="<%= product.cover_url %>"
                           alt="Cover <%= product.display_name %>"
+                          width="600"
+                          height="600"
                           loading="lazy"
                           decoding="async"
                         >
+                      <% } else { %>
+                        <div class="image-fallback">
+                          <%- icon('image') %>
+                          <span>Gambar tidak tersedia</span>
+                        </div>
                       <% } %>
-                      <h3><%= product.display_name %></h3>
                     </div>
 
-                    <div class="service-footer">
-                      <div>
-                        <% product.variants.forEach(variant=>{ %>
-                          <div>
-                            <% if(variant.icon_url){ %>
-                              <img
-                                src="<%= variant.icon_url %>"
-                                alt=""
-                                loading="lazy"
-                                decoding="async"
-                              >
-                            <% } %>
-                            <span><%= variant.display_name||'Varian' %></span>
-                            <strong><%= formatIDR(variant.retail_price) %></strong>
-                          </div>
-                        <% }) %>
+                    <div class="product-body">
+                      <div class="product-action-row">
+                        <h3 class="product-title"><%= product.display_name %></h3>
                       </div>
+
                     </div>
-                  </article>
+                  </a>
                 <% }) %>
               </div>
             </section>
@@ -214,4 +216,5 @@
       <% }) %>
     </section>
   <% } %>
+
 </section>

@@ -127,6 +127,66 @@ async function store(req,res,next){
   }
 }
 
+async function dwigitalProductDetail(req,res,next){
+  try{
+    const type=String(req.params.type||'').trim().toLowerCase();
+    const productId=String(req.params.productId||'').trim();
+
+    const notFound=()=>{
+      const error=new Error('Produk Dwigital tidak ditemukan.');
+      error.status=404;
+      error.expose=true;
+      return error;
+    };
+
+    if(
+      !['digital','game'].includes(type)||
+      !/^[A-Za-z0-9_-]{1,128}$/.test(productId)
+    ){
+      throw notFound();
+    }
+
+    const displayRepo=require('../repositories/dwigital-display.repository');
+    const providerProduct=await displayRepo.findProviderProduct(
+      type,
+      productId,
+      {publicOnly:true}
+    );
+
+    if(
+      !providerProduct||
+      !Array.isArray(providerProduct.variants)||
+      !providerProduct.variants.length
+    ){
+      throw notFound();
+    }
+
+    const publicAssetBucket=loadEnv().PUBLIC_ASSET_BUCKET;
+
+    providerProduct.cover_url=providerProduct.cover_path
+      ? storage.publicUrl(publicAssetBucket,providerProduct.cover_path)
+      : null;
+
+    providerProduct.variants=providerProduct.variants.map(variant=>({
+      ...variant,
+      icon_url:variant.icon_path
+        ? storage.publicUrl(publicAssetBucket,variant.icon_path)
+        : null
+    }));
+
+    return res.render(
+      'app',
+      base(req,{
+        title:`${providerProduct.display_name} | Jyyr Store`,
+        view:'pages/dwigital-product-detail',
+        providerProduct
+      })
+    );
+  }catch(error){
+    next(error);
+  }
+}
+
 async function productDetail(req,res,next){
   try{
     const product=await products.detailBySlug(
@@ -1396,4 +1456,4 @@ function ownerPage(section){
     }catch(e){next(e)}
   }
 }
-module.exports={home,store,productDetail,dashboard,cartPage,checkout,orders,orderDetail,history,deposit,profilePage,messagesPage,messageDetail,ownerMessageDetail,ownerTicketDetail,ticketsPage,ticketDetail,notificationsPage,servicesPage,topOrder,faq,security,legal,search,login,googleLogin,register,forgotPassword,resetPassword,authCallback,paymentStatus,delivery,ownerPage,configurationPage};
+module.exports={home,store,dwigitalProductDetail,productDetail,dashboard,cartPage,checkout,orders,orderDetail,history,deposit,profilePage,messagesPage,messageDetail,ownerMessageDetail,ownerTicketDetail,ticketsPage,ticketDetail,notificationsPage,servicesPage,topOrder,faq,security,legal,search,login,googleLogin,register,forgotPassword,resetPassword,authCallback,paymentStatus,delivery,ownerPage,configurationPage};

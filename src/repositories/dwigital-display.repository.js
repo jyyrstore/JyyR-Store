@@ -227,6 +227,7 @@ async function listProviderProducts({
        product.provider_type,
        product.provider_product_id,
        product.display_name,
+       product.cover_path,
        product.category_key,
        product.sort_order,
        product.is_visible,
@@ -256,6 +257,7 @@ async function listProviderProducts({
        product.provider_type,
        product.provider_product_id,
        product.display_name,
+       product.cover_path,
        product.category_key,
        product.sort_order,
        product.is_visible,
@@ -289,7 +291,7 @@ async function countProviderProducts({type,search=''}={}){
   return Number(result.rows[0]?.count||0);
 }
 
-async function findProviderProduct(type,providerProductId){
+async function findProviderProduct(type,providerProductId,{publicOnly=false}={}){
   if(!['digital','game'].includes(type)){
     throw displayError('INVALID_DWIGITAL_PROVIDER_TYPE','Tipe provider tidak didukung.');
   }
@@ -299,13 +301,30 @@ async function findProviderProduct(type,providerProductId){
        product.*,
        category.name AS category_name,
        category.parent_key AS category_parent_key,
-       category.icon_key AS category_icon_key
+       category.icon_key AS category_icon_key,
+       root.name AS category_parent_name,
+       root.icon_key AS category_parent_icon_key
      FROM dwigital_display_products product
      JOIN dwigital_display_categories category
        ON category.category_key=product.category_key
+     LEFT JOIN dwigital_display_categories root
+       ON root.category_key=category.parent_key
      WHERE product.provider_type=$1
-       AND product.provider_product_id=$2`,
-    [type,String(providerProductId)]
+       AND product.provider_product_id=$2
+       AND (
+         $3::boolean=false
+         OR (
+           product.is_visible=true
+           AND category.is_active=true
+           AND root.is_active=true
+           AND root.parent_key IS NULL
+           AND root.category_key=CASE
+             WHEN $1='digital' THEN 'premium'
+             ELSE 'game'
+           END
+         )
+       )`,
+    [type,String(providerProductId),publicOnly===true]
   );
 
   const product=productResult.rows[0];
@@ -333,8 +352,15 @@ async function findProviderProduct(type,providerProductId){
      WHERE source.type=$1
        AND source.is_active=true
        AND source.payload->>'product_id'=$2
+       AND (
+         $3::boolean=false
+         OR (
+           variant.is_visible=true
+           AND variant.retail_price IS NOT NULL
+         )
+       )
      ORDER BY COALESCE(variant.sort_order,0),source.variant_id`,
-    [type,String(providerProductId)]
+    [type,String(providerProductId),publicOnly===true]
   );
 
   return {...product,variants:variantResult.rows};
@@ -570,6 +596,8 @@ async function listPublicCatalog(){
        category.name AS category_name,
        category.icon_key AS category_icon_key,
        category.sort_order AS category_sort_order,
+       product.provider_type,
+       product.provider_product_id,
        product.provider_product_id AS product_group_key,
        product.display_name,
        product.sort_order AS product_sort_order,
@@ -647,6 +675,8 @@ async function listPublicCatalog(){
 
     if(!product){
       product={
+        provider_type:row.provider_type,
+        provider_product_id:row.provider_product_id,
         display_name:row.display_name,
         cover_path:row.cover_path,
         variants:[]
