@@ -109,6 +109,39 @@ test('history, orders, and dashboard render one card per order item', () => {
 });
 
 
+
+test('Dwigital sidecar orders appear in customer order history and cards',()=>{
+  const repository=fs.readFileSync(
+    path.join(root,'src/repositories/orders.repository.js'),
+    'utf8'
+  );
+
+  const listStart=repository.indexOf('async function listItemsForUser(');
+  const countStart=repository.indexOf('async function countItemsForUser(',listStart);
+  const detailStart=repository.indexOf('async function findForUser(',countStart);
+
+  assert.ok(listStart>=0&&countStart>listStart&&detailStart>countStart);
+
+  const listQuery=repository.slice(listStart,countStart);
+  const countQuery=repository.slice(countStart,detailStart);
+
+  assert.match(listQuery,/UNION ALL/i);
+  assert.match(listQuery,/join\s+dwigital_orders/i);
+  assert.match(listQuery,/null::uuid\s+as variant_id/i);
+  assert.match(listQuery,/as is_dwigital/i);
+  assert.match(listQuery,/digital\.retail_price\s+as line_total/i);
+  assert.match(countQuery,/dwigital_orders/i);
+
+  for(const file of [
+    'views/pages/orders.ejs',
+    'views/pages/history.ejs',
+    'views/pages/dashboard.ejs'
+  ]){
+    const view=fs.readFileSync(path.join(root,file),'utf8');
+    assert.match(view,/o\.is_dwigital\s*\?/);
+  }
+});
+
 test('customer order pages paginate five product cards globally', () => {
   const repository = fs.readFileSync(
     path.join(root, 'src/repositories/orders.repository.js'),
@@ -269,12 +302,16 @@ test('order detail orders content, Produk Digital, and payment cards', () => {
     'utf8'
   );
 
-  const successMessageIndex = orderDetail.indexOf('class="order-success-message"');
-  const contentCardIndex = orderDetail.indexOf('class="content-card"');
-  const productSummaryIndex = orderDetail.indexOf(
+  const localBranchStart = orderDetail.indexOf('<% } else { %>');
+  assert.notEqual(localBranchStart,-1,'Branch pesanan lokal harus tersedia.');
+
+  const localOrderDetail = orderDetail.slice(localBranchStart);
+  const successMessageIndex = localOrderDetail.indexOf('class="order-success-message"');
+  const contentCardIndex = localOrderDetail.indexOf('class="content-card"');
+  const productSummaryIndex = localOrderDetail.indexOf(
     '<div class="panel order-detail-table-card">'
   );
-  const paymentDetailsIndex = orderDetail.indexOf(
+  const paymentDetailsIndex = localOrderDetail.indexOf(
     '<div class="payment-details-shell">'
   );
 

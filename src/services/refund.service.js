@@ -1,5 +1,6 @@
 const { withTransaction }=require('../config/database');
 const delivery=require('../repositories/delivery.repository');
+const walletRepository=require('../repositories/wallet.repository');
 const notifications=require('./notification/notification.service');
 async function refund(ownerId, orderId, reason){
   if(!reason || String(reason).trim().length<5) throw Object.assign(new Error('Alasan refund wajib diisi.'),{status:400,code:'REFUND_REASON_REQUIRED',expose:true});
@@ -21,4 +22,154 @@ async function refund(ownerId, orderId, reason){
     return refundRow;
   });
 }
-module.exports={refund};
+
+async function refundDwigitalOrder(orderId,reason,client){
+  const run=async(transaction)=>{
+    const order=(await transaction.query(
+      'SELECT * FROM orders WHERE id=$1 FOR UPDATE',
+      [orderId]
+    )).rows[0];
+
+    if(!order){
+      throw Object.assign(
+        new Error('Order Dwigital tidak ditemukan.'),
+        {status:404,code:'ORDER_NOT_FOUND',expose:true}
+      );
+    }
+
+    const digital=(await transaction.query(
+      'SELECT * FROM dwigital_orders WHERE order_id=$1 FOR UPDATE',
+      [orderId]
+    )).rows[0];
+
+    if(
+      !digital||
+      String(digital.supplier_status||'').toLowerCase()!=='failed'||
+      digital.supplier_refunded!==true
+    ){
+      throw Object.assign(
+        new Error('Refund supplier belum dikonfirmasi.'),
+        {status:409,code:'DWIGITAL_SUPPLIER_REFUND_NOT_CONFIRMED',expose:true}
+      );
+    }
+
+    const existing=(await transaction.query(
+      `SELECT *
+       FROM refunds
+       WHERE order_id=$1 AND status='COMPLETED'
+       LIMIT 1`,
+      [orderId]
+    )).rows[0];
+
+    if(existing){
+      if(order.status!=='REFUNDED'){
+        await transaction.query(
+          "UPDATE orders SET status='REFUNDED',updated_at=now() WHERE id=$1",
+          [orderId]
+        );
+      }
+
+      return existing;
+    }
+
+    const amount=Number(order.total);
+
+    if(!Number.isSafeInteger(amount)||amount<=0){
+      throw Object.assign(
+        new Error('Nominal refund Dwigital tidak valid.'),
+        {status:409,code:'DWIGITAL_REFUND_AMOUNT_INVALID',expose:true}
+      );
+    }
+
+    const refundReason=String(
+      reason||'Pesanan supplier gagal; dana dikembalikan ke Wallet JYYR.'
+    ).trim().slice(0,500);
+
+    await walletRepository.ensure(transaction,order.user_id);
+
+    const wallet=(await transaction.query(
+      'SELECT * FROM wallets WHERE user_id=$1 FOR UPDATE',
+      [order.user_id]
+    )).rows[0];
+
+    if(!wallet){
+      throw Object.assign(
+        new Error('Wallet JYYR tidak tersedia.'),
+        {status:500,code:'WALLET_NOT_AVAILABLE'}
+      );
+    }
+
+    const before=Number(wallet.balance);
+    const after=before+amount;
+
+    if(!Number.isSafeInteger(before)||!Number.isSafeInteger(after)){
+      throw Object.assign(
+        new Error('Saldo Wallet JYYR tidak valid untuk refund.'),
+        {status:409,code:'WALLET_BALANCE_INVALID',expose:true}
+      );
+    }
+
+    const refundRow=(await transaction.query(
+      `INSERT INTO refunds(
+         order_id,payment_id,user_id,amount,reason,status,created_by
+       )
+       VALUES($1,NULL,$2,$3,$4,'COMPLETED',NULL)
+       RETURNING *`,
+      [order.id,order.user_id,amount,refundReason]
+    )).rows[0];
+
+    await transaction.query(
+      'UPDATE wallets SET balance=$2,updated_at=now() WHERE user_id=$1',
+      [order.user_id,after]
+    );
+
+    await transaction.query(
+      `INSERT INTO wallet_transactions(
+         wallet_id,user_id,type,amount,balance_before,balance_after,
+         reference,status,reason,metadata
+       )
+       VALUES(
+         $1,$2,'REFUND',$3,$4,$5,$6,'COMPLETED',$7,$8::jsonb
+       )`,
+      [
+        wallet.id,
+        order.user_id,
+        amount,
+        before,
+        after,
+        order.order_number,
+        refundReason,
+        JSON.stringify({
+          refundId:refundRow.id,
+          orderId:order.id,
+          provider:'dwigital',
+          source:'supplier_refund'
+        })
+      ]
+    );
+
+    await transaction.query(
+      "UPDATE orders SET status='REFUNDED',updated_at=now() WHERE id=$1",
+      [order.id]
+    );
+
+    await delivery.revokeByOrder(order.id,transaction);
+
+    await notifications.notify(
+      order.user_id,
+      {
+        type:'PAYMENT',
+        title:'Refund berhasil',
+        body:`Order ${order.order_number} gagal diproses supplier. ${require('../utils/currency').formatIDR(amount)} telah dikreditkan ke Wallet JYYR.`,
+        link:`/orders/${order.id}`
+      },
+      transaction
+    );
+
+    return refundRow;
+  };
+
+  return client ? run(client) : withTransaction(run);
+}
+
+module.exports={refund,refundDwigitalOrder};

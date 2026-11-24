@@ -397,6 +397,25 @@ async function expire(req, res) {
     );
   }
 
+  let dwigitalOrders={
+    scanned:0,
+    submitted:0,
+    updated:0,
+    stillPending:0,
+    errors:0
+  };
+
+  try{
+    dwigitalOrders=await require('../services/dwigital/purchase.service')
+      .createDwigitalPurchaseService()
+      .reconcilePending({limit:25});
+  }catch(error){
+    log('warn','dwigital_order_reconciliation_failed',{
+      code:String(error?.code||'DWIGITAL_RECONCILIATION_FAILED').slice(0,96)
+    });
+    dwigitalOrders.errors=1;
+  }
+
   let dwigitalCatalog;
 
   try{
@@ -417,6 +436,7 @@ async function expire(req, res) {
     deposits,
     productUploads,
     dwigitalCatalog,
+    dwigitalOrders,
     requestId: req.id
   });
 }

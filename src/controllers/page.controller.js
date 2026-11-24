@@ -174,12 +174,18 @@ async function dwigitalProductDetail(req,res,next){
         : null
     }));
 
+    const walletState=req.user?.id
+      ? await wallet.get(req.user.id)
+      : null;
+
     return res.render(
       'app',
       base(req,{
         title:`${providerProduct.display_name} | Jyyr Store`,
         view:'pages/dwigital-product-detail',
-        providerProduct
+        providerProduct,
+        isAuthenticated:Boolean(req.user?.id),
+        walletBalance:Number(walletState?.balance||0)
       })
     );
   }catch(error){
@@ -461,6 +467,42 @@ async function orderDetail(req,res,next){
       e.status=404;
       e.expose=true;
       throw e;
+    }
+
+
+    const dwigitalOrder=await require('../services/dwigital/purchase.service')
+      .createDwigitalPurchaseService()
+      .getOrderForUser(orderId,req.user.id);
+
+    if(dwigitalOrder){
+      const storedPayment=await require('../repositories/payments.repository')
+        .findLatestForOrderForUser(orderId,req.user.id);
+
+      const isBalanceOrder=
+        String(order.payment_method||'').trim().toUpperCase()==='BALANCE';
+
+      const payment=isBalanceOrder
+        ? {
+            payment_method:'BALANCE',
+            provider:'wallet',
+            amount:order.total,
+            raw_reference:{paymentMode:'BALANCE'},
+            reference:order.order_number,
+            status:'COMPLETED',
+            created_at:order.paid_at||order.created_at
+          }
+        : storedPayment;
+
+      return res.render(
+        'app',
+        base(req,{
+          title:'Detail Pesanan Digital',
+          view:'pages/order-detail',
+          order,
+          dwigitalOrder,
+          payment
+        })
+      );
     }
 
     if(!['PAID','PROCESSING','COMPLETED'].includes(

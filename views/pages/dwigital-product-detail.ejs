@@ -42,7 +42,14 @@
       </p>
     </div>
 
-    <section class="detail-variant-card" aria-labelledby="dwigital-variant-title">
+    <form
+      class="detail-variant-card dwigital-purchase-form"
+      data-dwigital-purchase-form
+      data-type="<%= providerProduct.provider_type %>"
+      data-product-id="<%= providerProduct.provider_product_id %>"
+      data-authenticated="<%= isAuthenticated ? '1' : '0' %>"
+      data-wallet-balance="<%= Number(walletBalance||0) %>"
+    >
       <h2 class="detail-variant-title" id="dwigital-variant-title">
         Pilihan Varian &amp; Harga
       </h2>
@@ -50,11 +57,53 @@
       <div
         class="detail-variant-options"
         data-product-variant-picker
-        role="list"
-        aria-label="Daftar varian dan harga"
+        role="group"
+        aria-labelledby="dwigital-variant-title"
       >
-        <% providerProduct.variants.forEach(variant=>{ %>
-          <div class="product-variant-card-option" role="listitem">
+        <% providerProduct.variants.forEach(variant=>{
+          const fields=Array.isArray(variant.fields)?variant.fields:[];
+          const targetField=fields.find(field=>field?.name==='target');
+          const zoneField=fields.find(field=>field?.name==='target_zone');
+          const unsupportedField=fields.some(
+            field=>
+              field?.required===true &&
+              !['target','target_zone'].includes(String(field.name||''))
+          );
+          const hasExtraField=Boolean(String(variant.extra_field||'').trim());
+          const priceUnit=String(variant.price_unit||'per_order').toLowerCase();
+          const canPurchase=
+            priceUnit==='per_order'&&
+            !hasExtraField&&
+            !unsupportedField;
+          const zoneRequired=
+            ['true','1','yes'].includes(
+              String(variant.zone_required||'').toLowerCase()
+            )||
+            zoneField?.required===true;
+          const zoneVisible=zoneRequired||Boolean(zoneField);
+          const targetLabel=
+            targetField?.label||
+            variant.target_label||
+            'Target';
+          const zoneLabel=
+            zoneField?.label||
+            variant.zone_label||
+            'Zone';
+        %>
+          <button
+            type="button"
+            class="product-variant-card-option"
+            data-dwigital-variant
+            data-purchasable="<%= canPurchase ? '1' : '0' %>"
+            data-variant-id="<%= variant.variant_id %>"
+            data-price="<%= Number(variant.retail_price||0) %>"
+            data-target-label="<%= targetLabel %>"
+            data-zone-label="<%= zoneLabel %>"
+            data-zone-required="<%= zoneRequired ? '1' : '0' %>"
+            data-zone-visible="<%= zoneVisible ? '1' : '0' %>"
+            aria-pressed="false"
+            <%= canPurchase ? '' : 'disabled' %>
+          >
             <span class="product-variant-option-icon" aria-hidden="true">
               <% if(variant.icon_url){ %>
                 <img
@@ -75,11 +124,303 @@
               <span class="product-variant-card-price">
                 <%= formatIDR(variant.retail_price) %>
               </span>
+              <% if(!canPurchase){ %>
+                <small class="muted">Belum mendukung pembelian otomatis</small>
+              <% } %>
             </span>
-          </div>
+          </button>
         <% }) %>
       </div>
-    </section>
+
+      <div class="stack-form">
+        <label class="field" for="dwigital-target">
+          <span data-dwigital-target-label>Target</span>
+          <input
+            id="dwigital-target"
+            type="text"
+            maxlength="254"
+            autocomplete="off"
+            required
+            disabled
+            placeholder="Pilih varian terlebih dahulu"
+            data-dwigital-target
+          >
+        </label>
+
+        <label
+          class="field"
+          for="dwigital-target-zone"
+          data-dwigital-zone-wrapper
+          hidden
+        >
+          <span data-dwigital-zone-label>Zone</span>
+          <input
+            id="dwigital-target-zone"
+            type="text"
+            maxlength="64"
+            autocomplete="off"
+            disabled
+            data-dwigital-zone
+          >
+        </label>
+      </div>
+
+      <fieldset class="payment-group">
+        <legend>Metode pembayaran</legend>
+        <div class="payment-options">
+          <label class="payment-option">
+            <input
+              type="radio"
+              name="dwigitalPaymentMethod"
+              value="BALANCE"
+              data-dwigital-balance
+              <%= isAuthenticated && Number(walletBalance||0)>0 ? '' : 'disabled' %>
+            >
+            <span class="payment-option__copy payment-option__copy--wallet">
+              <strong>Saldo Wallet JYYR</strong>
+              <small data-dwigital-wallet-balance>
+                Saldo tersedia <%= formatIDR(walletBalance||0) %>
+              </small>
+            </span>
+          </label>
+
+          <label class="payment-option is-selected">
+            <input
+              type="radio"
+              name="dwigitalPaymentMethod"
+              value="GATEWAY"
+              data-dwigital-gateway
+              checked
+            >
+            <span class="payment-option__copy payment-option__copy--qris">
+              <%- icon('qris', 'icon payment-option-qris', 'Gateway / QRIS') %>
+              <strong>Gateway / QRIS</strong>
+              <small>Pembayaran melalui penyedia pembayaran</small>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+
+      <div class="summary-row total">
+        <span>Total pembayaran</span>
+        <strong data-dwigital-total>—</strong>
+      </div>
+
+      <p
+        class="muted small"
+        data-dwigital-error
+        role="status"
+        aria-live="polite"
+        hidden
+      ></p>
+
+      <% if(isAuthenticated){ %>
+        <button
+          class="button button-primary button-block"
+          type="submit"
+          data-dwigital-submit
+          disabled
+        >
+          <%- icon('shopping-bag') %>
+          <span data-dwigital-submit-label>Beli Sekarang</span>
+        </button>
+      <% } else { %>
+        <a class="button button-primary button-block" href="/login">
+          Masuk untuk membeli
+        </a>
+      <% } %>
+
+      <p class="muted small">
+        Harga dan ketersediaan akan diverifikasi ulang ke supplier sebelum pesanan dibuat.
+      </p>
+    </form>
+
+    <script nonce="<%= cspNonce %>">
+    (()=>{
+      const form=document.querySelector('[data-dwigital-purchase-form]');
+      if(!form)return;
+
+      const options=Array.from(
+        form.querySelectorAll('[data-dwigital-variant]')
+      );
+      const target=form.querySelector('[data-dwigital-target]');
+      const zone=form.querySelector('[data-dwigital-zone]');
+      const zoneWrapper=form.querySelector('[data-dwigital-zone-wrapper]');
+      const targetLabel=form.querySelector('[data-dwigital-target-label]');
+      const zoneLabel=form.querySelector('[data-dwigital-zone-label]');
+      const walletChoice=form.querySelector('[data-dwigital-balance]');
+      const gatewayChoice=form.querySelector('[data-dwigital-gateway]');
+      const total=form.querySelector('[data-dwigital-total]');
+      const errorBox=form.querySelector('[data-dwigital-error]');
+      const submit=form.querySelector('[data-dwigital-submit]');
+      const submitLabel=form.querySelector('[data-dwigital-submit-label]');
+      const authenticated=form.dataset.authenticated==='1';
+      const walletBalance=Number(form.dataset.walletBalance||0);
+
+      if(!authenticated||!submit)return;
+
+      let selected=null;
+      let selectedPrice=0;
+      let submitting=false;
+
+      const idempotencyKey=
+        window.crypto&&typeof window.crypto.randomUUID==='function'
+          ? window.crypto.randomUUID()
+          : `dwigital-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+      const money=value=>new Intl.NumberFormat('id-ID',{
+        style:'currency',
+        currency:'IDR',
+        maximumFractionDigits:0
+      }).format(value);
+
+      const showError=message=>{
+        errorBox.textContent=String(message||'Pembelian tidak dapat diproses.');
+        errorBox.hidden=false;
+      };
+
+      const syncSubmit=()=>{
+        submit.disabled=
+          submitting||
+          !selected||
+          !target.value.trim()||
+          (zone.required&&!zone.value.trim())||
+          !authenticated;
+
+        if(!submitting){
+          submitLabel.textContent=selected
+            ? `Beli Sekarang · ${money(selectedPrice)}`
+            : 'Beli Sekarang';
+        }
+      };
+
+      const selectVariant=option=>{
+        if(!option||option.dataset.purchasable!=='1')return;
+
+        selected=option;
+        selectedPrice=Number(option.dataset.price||0);
+
+        for(const item of options){
+          const active=item===option;
+          item.classList.toggle('active',active);
+          item.setAttribute('aria-pressed',active?'true':'false');
+        }
+
+        target.disabled=false;
+        target.value='';
+        target.required=true;
+        targetLabel.textContent=option.dataset.targetLabel||'Target';
+        target.placeholder=`Masukkan ${targetLabel.textContent.toLowerCase()}`;
+
+        const zoneVisible=option.dataset.zoneVisible==='1';
+        zoneWrapper.hidden=!zoneVisible;
+        zone.disabled=!zoneVisible;
+        zone.required=option.dataset.zoneRequired==='1';
+        zone.value='';
+        zoneLabel.textContent=option.dataset.zoneLabel||'Zone';
+
+        const balanceAvailable=walletBalance>=selectedPrice;
+        walletChoice.disabled=!balanceAvailable;
+
+        if(walletChoice.disabled&&walletChoice.checked){
+          gatewayChoice.checked=true;
+        }else if(
+          !gatewayChoice.checked&&
+          !walletChoice.checked
+        ){
+          gatewayChoice.checked=true;
+        }
+
+        total.textContent=money(selectedPrice);
+        errorBox.hidden=true;
+        syncSubmit();
+      };
+
+      options.forEach(option=>{
+        option.addEventListener('click',()=>selectVariant(option));
+      });
+
+      target.addEventListener('input',syncSubmit);
+      zone.addEventListener('input',syncSubmit);
+      walletChoice.addEventListener('change',syncSubmit);
+      gatewayChoice.addEventListener('change',syncSubmit);
+
+      const firstAvailable=options.find(
+        option=>option.dataset.purchasable==='1'
+      );
+
+      if(firstAvailable){
+        selectVariant(firstAvailable);
+
+        if(walletBalance>=selectedPrice&&!walletChoice.disabled){
+          walletChoice.checked=true;
+        }
+        syncSubmit();
+      }else{
+        showError('Belum ada varian yang mendukung pembelian melalui halaman ini.');
+      }
+
+      form.addEventListener('submit',async event=>{
+        event.preventDefault();
+
+        if(submitting||!selected)return;
+
+        if(!target.reportValidity())return;
+        if(!zone.disabled&&!zone.reportValidity())return;
+
+        const paymentMethod=
+          form.querySelector('input[name="dwigitalPaymentMethod"]:checked')
+            ?.value||'GATEWAY';
+
+        if(paymentMethod==='BALANCE'&&walletBalance<selectedPrice){
+          showError('Saldo Wallet JYYR tidak mencukupi.');
+          return;
+        }
+
+        submitting=true;
+        submit.disabled=true;
+        submitLabel.textContent='Memproses pesanan…';
+        errorBox.hidden=true;
+
+        try{
+          const result=await window.JYYRApi.request(
+            '/api/dwigital/orders',
+            {
+              method:'POST',
+              body:{
+                type:form.dataset.type,
+                productId:form.dataset.productId,
+                variantId:selected.dataset.variantId,
+                target:target.value.trim(),
+                targetZone:zone.disabled?undefined:(zone.value.trim()||undefined),
+                paymentMethod,
+                idempotencyKey,
+                returnUrl:window.location.origin+'/orders'
+              }
+            }
+          );
+
+          if(result?.payment?.paymentUrl){
+            window.location.assign(result.payment.paymentUrl);
+            return;
+          }
+
+          if(result?.order?.id){
+            window.location.assign(
+              '/orders/'+encodeURIComponent(result.order.id)
+            );
+            return;
+          }
+
+          throw new Error('Respons pesanan tidak lengkap. Periksa halaman Pesanan.');
+        }catch(error){
+          showError(error?.message||'Pembelian gagal diproses.');
+          submitting=false;
+          syncSubmit();
+        }
+      });
+    })();
+    </script>
   </div>
 
   <div class="product-detail-info-cta">

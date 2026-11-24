@@ -73,6 +73,43 @@ test('Dwigital card opens detail page with public variants and retail prices',()
   assert.doesNotMatch(detailView,/data-buy-now|data-add-cart|product-purchase-sheet/);
 });
 
+
+test('Dwigital detail form supports supplier-priced variants and buyer payment',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+  const controller=read('src/controllers/page.controller.js');
+
+  assert.match(detailView,/data-dwigital-purchase-form/);
+  assert.match(detailView,/data-dwigital-variant/);
+  assert.match(detailView,/data-dwigital-submit/);
+  assert.match(detailView,/targetZone/);
+  assert.match(detailView,/paymentMethod/);
+  assert.match(detailView,/JYYRApi\.request/);
+  assert.match(detailView,/extra_field|canPurchase/);
+  assert.match(controller,/walletBalance/);
+  assert.match(controller,/isAuthenticated/);
+});
+
+test('Dwigital order detail uses owner-scoped decrypted supplier result',()=>{
+  const controller=read('src/controllers/page.controller.js');
+  const detailView=read('views/pages/order-detail.ejs');
+
+  const start=controller.indexOf('async function orderDetail(');
+  const end=controller.indexOf('async function history(',start);
+  assert.ok(start>=0&&end>start);
+
+  const handler=controller.slice(start,end);
+  const serviceCall=handler.indexOf('getOrderForUser');
+  const paymentGate=handler.indexOf("if(!['PAID','PROCESSING','COMPLETED']");
+
+  assert.ok(serviceCall>=0&&paymentGate>serviceCall);
+  assert.match(handler,/dwigitalOrder/);
+  assert.match(handler,/findLatestForOrderForUser/);
+  assert.match(detailView,/<% if\(dwigitalOrder\)\{ %>/);
+  assert.match(detailView,/supplier_accounts/);
+  assert.match(detailView,/supplier_note/);
+  assert.match(detailView,/targetZone/);
+});
+
 test('Owner provider-products page uses existing protected owner routing',()=>{
   const routes=read('src/routes/index.js');
   const sidebar=read('views/partials/sidebar.ejs');

@@ -467,6 +467,18 @@ apiRouter.delete('/cart/:id',requireAuth,asyncHandler(api.cartController.remove)
 apiRouter.delete('/cart',requireAuth,asyncHandler(api.cartController.clear));
 apiRouter.get('/checkout/preview',requireAuth,asyncHandler(api.orderController.preview));
 apiRouter.post('/orders',requireAuth,validate(z.object({paymentMethod:z.enum(['BALANCE','GATEWAY','SANDBOX','LIVE']),idempotencyKey:z.string().min(8).max(100).optional(),returnUrl:z.string().url().optional(),buyNowProductId:z.string().uuid().optional(),buyNowVariantId:z.string().uuid().optional()})),asyncHandler(api.orderController.create));
+const dwigitalOrderSchema=z.object({
+  type:z.enum(['digital','game']),
+  productId:z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
+  variantId:z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
+  target:z.string().trim().min(1).max(254),
+  targetZone:z.string().trim().max(64).optional(),
+  paymentMethod:z.enum(['BALANCE','GATEWAY']),
+  idempotencyKey:z.string().min(8).max(100).optional(),
+  returnUrl:z.string().url().optional()
+});
+
+apiRouter.post('/dwigital/orders',requireAuth,sensitiveRateLimit(),validate(dwigitalOrderSchema),asyncHandler(api.dwigitalOrderController.create));
 apiRouter.get('/orders',requireAuth,asyncHandler(api.orderController.list));
 apiRouter.get('/orders/:id',requireAuth,asyncHandler(api.orderController.detail));
 apiRouter.post('/payment/create',requireAuth,validate(z.object({orderId:z.string().uuid(),returnUrl:z.string().url().optional()})),asyncHandler(api.paymentController.create));
@@ -712,6 +724,81 @@ function createWebhookRouter(providerResolver){
   return router;
 }
 
+function createDwigitalWebhookRouter(){
+  const router=express.Router();
+
+  router.post(
+    '/',
+    express.raw({type:'application/json',limit:'1mb'}),
+    asyncHandler(async(req,res)=>{
+      const raw=req.body;
+
+      if(!Buffer.isBuffer(raw)){
+        throw Object.assign(
+          new Error('Raw Dwigital webhook body is required.'),
+          {status:400,code:'INVALID_WEBHOOK_BODY',expose:true}
+        );
+      }
+
+      const secret=String(loadEnv().DWIGITAL_WEBHOOK_SECRET||'');
+
+      if(!secret){
+        throw Object.assign(
+          new Error('Dwigital webhook secret is not configured.'),
+          {status:503,code:'DWIGITAL_WEBHOOK_NOT_CONFIGURED',expose:true}
+        );
+      }
+
+      const crypto=require('crypto');
+      const supplied=Buffer.from(
+        String(req.get('X-Dwigital-Signature')||'').trim()
+      );
+      const expected=Buffer.from(
+        'sha256='+crypto.createHmac('sha256',secret).update(raw).digest('hex')
+      );
+
+      if(
+        supplied.length!==expected.length||
+        !crypto.timingSafeEqual(supplied,expected)
+      ){
+        throw Object.assign(
+          new Error('Invalid Dwigital webhook signature.'),
+          {status:401,code:'DWIGITAL_WEBHOOK_SIGNATURE_INVALID',expose:true}
+        );
+      }
+
+      let event;
+
+      try{
+        event=JSON.parse(raw.toString('utf8'));
+      }catch{
+        throw Object.assign(
+          new Error('Invalid Dwigital webhook JSON.'),
+          {status:400,code:'INVALID_WEBHOOK_JSON',expose:true}
+        );
+      }
+
+      const eventKey=crypto.createHash('sha256')
+        .update(raw)
+        .digest('hex');
+
+      const service=require('../services/dwigital/purchase.service')
+        .createDwigitalPurchaseService();
+
+      const result=await service.processSupplierUpdate(
+        event,
+        {eventKey}
+      );
+
+      return ok(res,result);
+    })
+  );
+
+  return router;
+}
+
+const dwigitalWebhookRouter=createDwigitalWebhookRouter();
+
 const webhookRouter=createWebhookRouter(
   ()=>String(loadEnv().PAYMENT_PROVIDER||'generic-json').toLowerCase()
 );
@@ -725,6 +812,7 @@ module.exports={
   pageRouter,
   cronRouter,
   webhookRouter,
+  dwigitalWebhookRouter,
   legacyXenditWebhookRouter,
   buatQrisWebhookRouter,
 };

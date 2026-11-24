@@ -96,7 +96,9 @@ async function listItemsForUser(userId,{limit=50,offset=0}={}){
            oi.quantity,
            oi.line_total,
            product.thumbnail_path as product_thumbnail_path,
-           variant.icon_path as variant_icon_path
+           variant.icon_path as variant_icon_path,
+           false as is_dwigital,
+           null::text as dwigital_supplier_status
          from orders o
          join order_items oi
            on oi.order_id=o.id
@@ -105,6 +107,46 @@ async function listItemsForUser(userId,{limit=50,offset=0}={}){
          left join product_variants variant
            on variant.id=oi.variant_id
           and variant.product_id=oi.product_id
+         where o.user_id=$1
+
+         UNION ALL
+
+         select
+           o.*,
+           (
+             select payment.id
+             from payments payment
+             where payment.order_id=o.id
+               and payment.status='PENDING'
+               and lower(payment.provider)='buatqris'
+             order by payment.created_at desc,payment.id desc
+             limit 1
+           ) as pending_payment_id,
+           (
+             select lower(payment.provider)
+             from payments payment
+             where payment.order_id=o.id
+               and payment.status='PENDING'
+               and lower(payment.provider)='buatqris'
+             order by payment.created_at desc,payment.id desc
+             limit 1
+           ) as pending_payment_provider,
+           digital.order_id as order_item_id,
+           null::uuid as product_id,
+           digital.product_name,
+           null::uuid as variant_id,
+           digital.variant_name as variant_label,
+           null::bigint as variant_amount,
+           digital.retail_price as unit_price,
+           1::integer as quantity,
+           digital.retail_price as line_total,
+           null::text as product_thumbnail_path,
+           null::text as variant_icon_path,
+           true as is_dwigital,
+           digital.supplier_status as dwigital_supplier_status
+         from orders o
+         join dwigital_orders digital
+           on digital.order_id=o.id
          where o.user_id=$1
        ),
        page_items as (
@@ -130,10 +172,20 @@ async function countItemsForUser(userId){
   return Number(
     (
       await query(
-        `select count(*)::int count
-         from orders o
-         join order_items oi on oi.order_id=o.id
-         where o.user_id=$1`,
+        `select
+           (
+             select count(*)
+             from orders o
+             join order_items oi on oi.order_id=o.id
+             where o.user_id=$1
+           )
+           +
+           (
+             select count(*)
+             from orders o
+             join dwigital_orders digital on digital.order_id=o.id
+             where o.user_id=$1
+           ) as count`,
         [userId]
       )
     ).rows[0].count

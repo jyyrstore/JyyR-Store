@@ -44,6 +44,7 @@ function loadEnv() {
     DWIGITAL_API_KEY: process.env.DWIGITAL_API_KEY || '',
     DWIGITAL_API_BASE_URL: process.env.DWIGITAL_API_BASE_URL || 'https://dwigital.id/api/v1',
     DWIGITAL_SYNC_INTERVAL_MINUTES: int(process.env.DWIGITAL_SYNC_INTERVAL_MINUTES, 360),
+    DWIGITAL_WEBHOOK_SECRET: process.env.DWIGITAL_WEBHOOK_SECRET || '',
     PAYMENT_PROVIDER: process.env.PAYMENT_PROVIDER || 'generic-json',
     PAYMENT_API_BASE_URL: process.env.PAYMENT_API_BASE_URL || '',
     PAYMENT_API_KEY: process.env.PAYMENT_API_KEY || '',

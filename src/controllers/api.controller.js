@@ -280,6 +280,23 @@ const orderController={
  detail:async(req,res)=>{
    const o=await require('../repositories/orders.repository').findForUser(req.params.id,req.user.id);
    if(!o) throw Object.assign(new Error('Order not found.'),{status:404,code:'ORDER_NOT_FOUND',expose:true});
+
+   const dwigitalOrder=await require('../services/dwigital/purchase.service')
+     .createDwigitalPurchaseService()
+     .getOrderForUser(req.params.id,req.user.id);
+
+   if(dwigitalOrder){
+     const storedPayment=await require('../repositories/payments.repository')
+       .findLatestForOrderForUser(req.params.id,req.user.id);
+
+     return ok(res,{
+       ...o,
+       items:[],
+       dwigital:dwigitalOrder,
+       payment:storedPayment
+     });
+   }
+
    if(!['PAID','PROCESSING','COMPLETED'].includes(String(o.status||'').trim().toUpperCase())){
      throw Object.assign(new Error('Order detail is only available for confirmed orders.'),{status:403,code:'ORDER_DETAIL_LOCKED',expose:true});
    }
@@ -308,6 +325,86 @@ const orderController={
    return ok(res,{...o,items})
  }
 };
+const dwigitalOrderController={
+ create:async(req,res)=>{
+   const method=String(req.body.paymentMethod||'').toUpperCase();
+   const env=loadEnv();
+
+   if(!['BALANCE','GATEWAY'].includes(method)){
+     throw Object.assign(
+       new Error('Metode pembayaran Dwigital tidak valid.'),
+       {status:400,code:'INVALID_PAYMENT_METHOD',expose:true}
+     );
+   }
+
+   if(method==='GATEWAY'){
+     payment.assertProviderReady({testMode:false});
+   }
+
+   const returnUrl=safeSameOriginUrl(
+     req.body.returnUrl,
+     '/orders',
+     env.APP_ALLOWED_URLS
+   );
+
+   const purchaseService=require('../services/dwigital/purchase.service')
+     .createDwigitalPurchaseService();
+
+   const created=await purchaseService.createOrder({
+     ...req.body,
+     userId:req.user.id,
+     idempotencyKey:req.body.idempotencyKey||crypto.randomUUID(),
+     paymentMethod:method
+   });
+
+   let paymentResult=null;
+   let fulfillment=null;
+
+   if(method==='BALANCE'){
+     try{
+       fulfillment=await purchaseService.fulfillOrder(created.order.id);
+     }catch(error){
+       log('warn','dwigital_wallet_fulfillment_deferred',{
+         orderId:String(created.order.id),
+         code:String(error?.code||'DWIGITAL_FULFILLMENT_DEFERRED').slice(0,96)
+       });
+
+       fulfillment={unknown:true};
+     }
+   }else if(String(created.order.status).toUpperCase()==='PENDING'){
+     paymentResult=await payment.createForOrder(
+       req.user.id,
+       created.order,
+       (()=> {
+         try{
+           const url=new URL(returnUrl);
+           url.pathname='/orders/'+encodeURIComponent(created.order.id);
+           url.search='';
+           return url.toString();
+         }catch{
+           return returnUrl;
+         }
+       })(),
+       {paymentMode:'LIVE'}
+     );
+   }else{
+     paymentResult=await require('../repositories/payments.repository')
+       .findLatestForOrderForUser(created.order.id,req.user.id);
+   }
+
+   return ok(
+     res,
+     {
+       order:created.order,
+       duplicate:created.duplicate===true,
+       fulfillment,
+       payment:paymentResult
+     },
+     created.duplicate?200:201
+   );
+ }
+};
+
 const paymentController={
  create:async(req,res)=>{
      const order=await require('../repositories/orders.repository').findForUser(
@@ -1550,4 +1647,4 @@ async function ownerProviderUploadComplete(req,res){
 }
 
 
-module.exports={authController,productController,cartController,orderController,paymentController,depositController,deliveryController,profileController,ticketController,notificationController,serviceController,messageController,contentController,ownerController,ownerUploadInit,ownerUploadComplete,ownerProviderUploadInit,ownerProviderUploadComplete};
+module.exports={authController,productController,cartController,orderController,dwigitalOrderController,paymentController,depositController,deliveryController,profileController,ticketController,notificationController,serviceController,messageController,contentController,ownerController,ownerUploadInit,ownerUploadComplete,ownerProviderUploadInit,ownerProviderUploadComplete};

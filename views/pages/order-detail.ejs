@@ -1,4 +1,126 @@
 <% const contentTypeLabels = { FILE: 'File', IMAGE: 'Gambar', VIDEO: 'Video', AUDIO: 'Audio', TEXT: 'Teks', LINK: 'Tautan' }; const accessTypeLabels = { PURCHASED: 'Setelah pembelian', PUBLIC: 'Publik', PREVIEW: 'Pratinjau' }; %> <% const paymentDetailsMarkup = payment ? include('../partials/payment-details', { payment, heading: 'Rincian Pembayaran', orderNumber: order.order_number }) : ''; %>
+<% if(dwigitalOrder){ %>
+<section class="page-shell" data-dwigital-order-detail="<%= order.id %>">
+  <div class="page-header">
+    <div>
+      <h1>Detail Pesanan Digital</h1>
+      <p>Informasi pembayaran, target, dan status pemrosesan supplier.</p>
+    </div>
+    <a class="button button-secondary" href="/orders">Kembali ke Pesanan</a>
+  </div>
+
+  <div class="two-column">
+    <div class="order-download-panel">
+      <div class="panel order-detail-table-card">
+        <div class="section-header order-detail-table-heading">
+          <div>
+            <h2><%= dwigitalOrder.product_name %></h2>
+            <span class="badge badge-<%= String(order.status||'').toLowerCase() %>">
+              <%= labelStatus(order.status) %>
+            </span>
+          </div>
+          <span class="payment-title-divider" aria-hidden="true"></span>
+        </div>
+
+        <div class="order-detail-table-summary">
+          <div class="summary-row order-detail-table-row">
+            <span>Nomor pesanan</span>
+            <b># <%= order.order_number %></b>
+          </div>
+          <div class="summary-row order-detail-table-row">
+            <span>Varian</span>
+            <b><%= dwigitalOrder.variant_name %></b>
+          </div>
+          <div class="summary-row order-detail-table-row">
+            <span>Target</span>
+            <b><%= dwigitalOrder.target?.target || '—' %></b>
+          </div>
+          <% if(dwigitalOrder.target?.targetZone){ %>
+            <div class="summary-row order-detail-table-row">
+              <span>Zone</span>
+              <b><%= dwigitalOrder.target.targetZone %></b>
+            </div>
+          <% } %>
+          <div class="summary-row order-detail-table-row">
+            <span>Delivery supplier</span>
+            <b><%= labelStatus(dwigitalOrder.delivery) %></b>
+          </div>
+          <div class="summary-row order-detail-table-row">
+            <span>Status supplier</span>
+            <b><%= labelStatus(dwigitalOrder.supplier_status) %></b>
+          </div>
+          <% if(dwigitalOrder.supplier_ref_id){ %>
+            <div class="summary-row order-detail-table-row">
+              <span>Referensi supplier</span>
+              <b><%= dwigitalOrder.supplier_ref_id %></b>
+            </div>
+          <% } %>
+          <div class="summary-row order-detail-table-row">
+            <span>Tanggal dibuat</span>
+            <b><%= formatDate(order.created_at) %></b>
+          </div>
+        </div>
+
+        <% if(dwigitalOrder.supplier_note){ %>
+          <div class="section">
+            <h3>Catatan supplier</h3>
+            <p class="content-description"><%= dwigitalOrder.supplier_note %></p>
+          </div>
+        <% } %>
+
+        <% if(dwigitalOrder.supplier_accounts){ %>
+          <div class="section">
+            <h3>Hasil delivery</h3>
+            <pre class="content-text"><%= JSON.stringify(dwigitalOrder.supplier_accounts,null,2) %></pre>
+          </div>
+        <% } %>
+
+        <% if(order.status==='REFUNDED'&&dwigitalOrder.supplier_refunded){ %>
+          <p class="muted" role="status">
+            Pengembalian dana supplier telah dikreditkan ke Wallet JYYR.
+          </p>
+        <% } %>
+
+        <% if(paymentDetailsMarkup){ %>
+          <div class="payment-details-shell">
+            <%- paymentDetailsMarkup %>
+          </div>
+        <% } %>
+
+        <% if(payment&&String(payment.status||'').toUpperCase()==='PENDING'){ %>
+          <a
+            class="button button-primary button-block"
+            href="/payment/<%= payment.public_id||payment.id %>"
+          >Lanjutkan pembayaran</a>
+        <% } %>
+      </div>
+    </div>
+
+    <aside class="summary-card">
+      <div class="eyebrow">Ringkasan pembayaran</div>
+      <div class="summary-row">
+        <span>Produk</span>
+        <strong><%= dwigitalOrder.product_name %></strong>
+      </div>
+      <div class="summary-row">
+        <span>Varian</span>
+        <strong><%= dwigitalOrder.variant_name %></strong>
+      </div>
+      <div class="summary-row">
+        <span>Total</span>
+        <strong><%= formatIDR(order.total) %></strong>
+      </div>
+      <div class="summary-row">
+        <span>Metode pembayaran</span>
+        <strong><%= String(order.payment_method||'').toUpperCase()==='BALANCE' ? 'Saldo Wallet JYYR' : 'Gateway' %></strong>
+      </div>
+      <a class="button button-secondary button-block" href="/orders">
+        Lihat semua pesanan
+      </a>
+    </aside>
+  </div>
+</section>
+<% } else { %>
 <section class="page-shell" data-payment-review-order-detail="<%= req.query.review ? order.id : '' %>">
 <div class="order-success-message" role="status">
   <h1><span class="order-success-icon" aria-hidden="true"><%- icon('shop-twotone') %></span><span>ORDER SUCCEED ✓</span></h1>
@@ -65,3 +187,4 @@
 </div>
 
 <div class="summary-row"> <span>Total</span> <strong><%= formatIDR(order.total) %></strong> </div> <div class="security-note"> <%- icon('shield-key-outline') %> <div> <strong>Akses aman</strong> <span> Akses file dan tautan diverifikasi server sebelum dibuka. Tautan file menggunakan akses sementara. </span> </div> </div> <a class="button button-secondary button-block" href="/delivery" > <%- icon('package') %> Produk Saya </a> </aside> </div> </section>
+<% } %>

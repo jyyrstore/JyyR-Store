@@ -1,7 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {formatIDR}=require('../../src/utils/currency');
-const {hmac}=require('../../src/utils/crypto');
+const {hmac,encrypt,decrypt}=require('../../src/utils/crypto');
 const {pageParams}=require('../../src/utils/pagination');
 const {icon,icons}=require('../../src/utils/icons');
 const {safeSameOriginUrl}=require('../../src/utils/url');
@@ -455,4 +455,33 @@ test('BuatQris rejects conflicting event and body status',()=>{
   });
   assert.equal(parsed.status,'');
 });
+
+
+test('AES-256-GCM encrypts and decrypts sensitive values',()=>{
+  const secret=Buffer.alloc(32,7).toString('base64');
+  const plaintext=JSON.stringify({
+    target:'123456789',
+    targetZone:'2345'
+  });
+
+  const encrypted=encrypt(plaintext,secret);
+
+  assert.notEqual(encrypted,plaintext);
+  assert.match(encrypted,/^v1\.[^.]+\.[^.]+\.[^.]+$/);
+  assert.equal(decrypt(encrypted,secret),plaintext);
+});
+
+test('AES-256-GCM rejects tampered ciphertext and invalid keys',()=>{
+  const secret=Buffer.alloc(32,7).toString('base64');
+  const encrypted=encrypt('sensitive-value',secret);
+  const parts=encrypted.split('.');
+  parts[3]=(parts[3][0]==='A'?'B':'A')+parts[3].slice(1);
+
+  assert.throws(()=>decrypt(parts.join('.'),secret));
+  assert.throws(
+    ()=>encrypt('sensitive-value','invalid-key'),
+    error=>error.code==='ENCRYPTION_KEY_INVALID'
+  );
+});
+
 // END JYYR_BUATQRIS_STATUS_CONFLICT_TEST

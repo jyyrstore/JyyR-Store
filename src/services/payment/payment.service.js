@@ -1906,6 +1906,14 @@ async function processWebhook(rawBody,signature,payload,requestedProvider){
     const order=lockedOrder;
     if(!order)throw notFound('Order not found.');
 
+    const isDwigitalOrder=Boolean(
+      (await client.query(
+        'SELECT 1 FROM dwigital_orders WHERE order_id=$1 LIMIT 1',
+        [order.id]
+      )).rowCount
+    );
+
+
     /*
      * Pembayaran terlambat atau state order tidak normal harus
      * direkonsiliasi. Jangan memberikan produk secara otomatis.
@@ -1919,6 +1927,12 @@ async function processWebhook(rawBody,signature,payload,requestedProvider){
       !(
         current==='PAID' &&
         order.status==='PAID'
+      )
+      &&
+      !(
+        isDwigitalOrder &&
+        current==='PAID' &&
+        order.status==='PROCESSING'
       )
     ){
       await client.query(
@@ -1963,9 +1977,38 @@ async function processWebhook(rawBody,signature,payload,requestedProvider){
         await delivery.createEntitlement({userId:payment.user_id,productId:i.product_id,orderId:order.id},client);
       }
       await client.query("update orders set status='PAID',paid_at=coalesce(paid_at,now()),updated_at=now() where id=$1",[order.id]);
-      await carts.clear(payment.user_id,client);
-      await notifications.notify(payment.user_id,{type:'PAYMENT',title:'Pembayaran berhasil',body:`Pembayaran untuk ${order.order_number} berhasil diverifikasi.`,link:`/orders/${order.id}`},client);
-      await notifications.notify(payment.user_id,{type:'ORDER',title:'Produk siap digunakan',body:`Order ${order.order_number} sudah dibayar dan akses content tersedia.`,link:`/orders/${order.id}`},client);
+      if(!isDwigitalOrder){
+        await carts.clear(payment.user_id,client);
+      }
+
+      await notifications.notify(
+        payment.user_id,
+        {
+          type:'PAYMENT',
+          title:'Pembayaran berhasil',
+          body:`Pembayaran untuk ${order.order_number} berhasil diverifikasi.`,
+          link:`/orders/${order.id}`
+        },
+        client
+      );
+
+      await notifications.notify(
+        payment.user_id,
+        isDwigitalOrder
+          ? {
+              type:'ORDER',
+              title:'Pesanan sedang diproses',
+              body:`Pembayaran order ${order.order_number} berhasil. Pesanan sedang diteruskan ke supplier.`,
+              link:`/orders/${order.id}`
+            }
+          : {
+              type:'ORDER',
+              title:'Produk siap digunakan',
+              body:`Order ${order.order_number} sudah dibayar dan akses content tersedia.`,
+              link:`/orders/${order.id}`
+            },
+        client
+      );
     } else if(['FAILED','EXPIRED','CANCELLED'].includes(next) && order.status==='PENDING'){
       await client.query("update orders set status=$2,updated_at=now() where id=$1",[order.id,next]);
       if(order.payment_method!=='SANDBOX'){
@@ -2002,6 +2045,7 @@ async function processWebhook(rawBody,signature,payload,requestedProvider){
       paymentStatus:next,
       orderId:order.id,
       orderPaid:next==='PAID'&&current==='PENDING'&&order.status==='PENDING',
+      isDwigitalOrder,
       recipientEmail:order.recipient_email||null,
       orderNumber:order.order_number,
       orderTotal:Number(order.total||0),
@@ -2015,6 +2059,19 @@ async function processWebhook(rawBody,signature,payload,requestedProvider){
       new Error('Referensi pembayaran BuatQris belum tersedia; webhook dapat dicoba ulang.'),
       {status:503,code:'PAYMENT_REFERENCE_NOT_READY',expose:true}
     );
+  }
+
+  if(result?.orderPaid&&result.isDwigitalOrder){
+    try{
+      await require('../dwigital/purchase.service')
+        .createDwigitalPurchaseService()
+        .fulfillOrder(result.orderId);
+    }catch(error){
+      log('warn','dwigital_paid_order_fulfillment_deferred',{
+        orderId:String(result.orderId),
+        code:String(error?.code||'DWIGITAL_FULFILLMENT_DEFERRED').slice(0,96)
+      });
+    }
   }
 
   if(result?.orderPaid&&result.recipientEmail){

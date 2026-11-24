@@ -18,7 +18,7 @@ const { notFound } = require('./src/middleware/not-found.middleware');
 const { errorHandler } = require('./src/middleware/error.middleware');
 const { generalRateLimit, sensitiveRateLimit } = require('./src/middleware/security.middleware');
 const { icon, icons } = require('./src/utils/icons');
-const { apiRouter, pageRouter, cronRouter, webhookRouter, legacyXenditWebhookRouter, buatQrisWebhookRouter } = require('./src/routes');
+const { apiRouter, pageRouter, cronRouter, webhookRouter, dwigitalWebhookRouter, legacyXenditWebhookRouter, buatQrisWebhookRouter } = require('./src/routes');
 
 const PACKAGE_VERSION = require('./package.json').version;
 
@@ -176,6 +176,7 @@ async function createApp() {
   app.use('/api/payment/webhook/buatqris', buatQrisWebhookRouter);
   app.use('/api/payment/webhook', webhookRouter);
   app.use('/api/webhook/xendit', legacyXenditWebhookRouter);
+  app.use('/api/webhook/dwigital', dwigitalWebhookRouter);
 
   // Vercel Cron calls this protected endpoint; keep it outside session/CSRF.
   app.use('/api/cron', cronRouter);

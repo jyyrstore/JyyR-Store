@@ -855,4 +855,76 @@ test('Dwigital sync scheduler memakai cron terlindungi dan state database',()=>{
   }
 });
 
+
+
+test('createOrder mengirim POST JSON sesuai kontrak Dwigital',async()=>{
+  const requests=[];
+  const payload={
+    reference:'JYR-20261124-ABC123',
+    variant_id:'1234',
+    target:'buyer@example.com',
+    max_price:19850
+  };
+  const order={
+    reference:payload.reference,
+    status:'processing',
+    refunded:false
+  };
+
+  const client=makeClient({
+    fetchImpl:async(url,options)=>{
+      requests.push({url:String(url),options});
+      return jsonResponse({
+        success:true,
+        data:order
+      },201);
+    }
+  });
+
+  const result=await client.createOrder(payload);
+
+  assert.equal(requests.length,1);
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    '/api/v1/orders'
+  );
+  assert.equal(requests[0].options.method,'POST');
+
+  const headers=new Headers(requests[0].options.headers);
+  assert.equal(headers.get('authorization'),`Bearer ${API_KEY}`);
+  assert.equal(headers.get('accept'),'application/json');
+  assert.equal(headers.get('content-type'),'application/json');
+  assert.deepEqual(JSON.parse(requests[0].options.body),payload);
+  assert.deepEqual(result,order);
+});
+
+test('getOrder membaca status pesanan berdasarkan reference',async()=>{
+  const requests=[];
+  const order={
+    reference:'JYR-20261124-ABC123',
+    status:'success',
+    note:'SN-TEST'
+  };
+
+  const client=makeClient({
+    fetchImpl:async(url,options)=>{
+      requests.push({url:String(url),options});
+      return jsonResponse({
+        success:true,
+        data:order
+      });
+    }
+  });
+
+  const result=await client.getOrder(order.reference);
+
+  assert.equal(requests.length,1);
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    '/api/v1/orders/JYR-20261124-ABC123'
+  );
+  assert.equal(requests[0].options.method,'GET');
+  assert.deepEqual(result,order);
+});
+
 // END JYYR DWIGITAL CATALOG SYNC TESTS

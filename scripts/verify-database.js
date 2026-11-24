@@ -12,6 +12,8 @@ const REQUIRED_TABLES=[
   'product_variants',
   'dwigital_catalog',
   'dwigital_catalog_sync_state',
+  'dwigital_orders',
+  'dwigital_webhook_events',
   'product_contents',
   'orders',
   'payments',

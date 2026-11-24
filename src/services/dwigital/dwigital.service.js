@@ -98,7 +98,7 @@ function createDwigitalClient(options={}){
     );
   }
 
-  async function request(path,params=null){
+  async function request(path,params=null,{method='GET',body:requestBody}={}){
     const url=new URL(
       String(path).replace(/^\/+/,''),
       `${baseUrl}/`
@@ -117,14 +117,21 @@ function createDwigitalClient(options={}){
     let response;
 
     try{
-      response=await fetchImpl(url.toString(),{
-        method:'GET',
+      const requestOptions={
+        method,
         headers:{
           accept:'application/json',
           authorization:`Bearer ${apiKey}`
         },
         signal:controller.signal
-      });
+      };
+
+      if(requestBody!==undefined){
+        requestOptions.headers['content-type']='application/json';
+        requestOptions.body=JSON.stringify(requestBody);
+      }
+
+      response=await fetchImpl(url.toString(),requestOptions);
     }catch(error){
       if(error?.name==='AbortError'){
         throw createError(
@@ -334,10 +341,109 @@ function createDwigitalClient(options={}){
     return body.data;
   }
 
+  async function createOrder(payload){
+    if(!payload||typeof payload!=='object'||Array.isArray(payload)){
+      throw createError(
+        'INVALID_DWIGITAL_ORDER',
+        'Data pesanan Dwigital tidak valid.',
+        400
+      );
+    }
+
+    const reference=String(payload.reference??'').trim();
+    const target=String(payload.target??'').trim();
+    const variantId=payload.variant_id;
+    const code=String(payload.code??'').trim();
+
+    if(
+      !/^[A-Za-z0-9._-]{1,64}$/.test(reference)||
+      !target||
+      (variantId===undefined&& !code)||
+      (variantId!==undefined&&
+        !(typeof variantId==='string'||Number.isSafeInteger(variantId)))||
+      (variantId!==undefined&&!String(variantId).trim())||
+      (payload.max_price!==undefined&&
+        (!Number.isSafeInteger(payload.max_price)||payload.max_price<0))
+    ){
+      throw createError(
+        'INVALID_DWIGITAL_ORDER',
+        'Reference, variant, target, atau max_price pesanan Dwigital tidak valid.',
+        400
+      );
+    }
+
+    const body=await request('orders',null,{
+      method:'POST',
+      body:payload
+    });
+
+    if(
+      !body.data||
+      typeof body.data!=='object'||
+      Array.isArray(body.data)
+    ){
+      throw createError(
+        'DWIGITAL_INVALID_RESPONSE',
+        'Respons pembuatan pesanan Dwigital tidak valid.',
+        502
+      );
+    }
+
+    if(String(body.data.reference||'')!==reference){
+      throw createError(
+        'DWIGITAL_ORDER_REFERENCE_MISMATCH',
+        'Reference pesanan dari Dwigital tidak cocok.',
+        502
+      );
+    }
+
+    return body.data;
+  }
+
+  async function getOrder(reference){
+    const id=String(reference??'').trim();
+
+    if(!/^[A-Za-z0-9._-]{1,64}$/.test(id)){
+      throw createError(
+        'INVALID_DWIGITAL_ORDER_REFERENCE',
+        'Reference pesanan Dwigital tidak valid.',
+        400
+      );
+    }
+
+    const body=await request(
+      `orders/${encodeURIComponent(id)}`
+    );
+
+    if(
+      !body.data||
+      typeof body.data!=='object'||
+      Array.isArray(body.data)
+    ){
+      throw createError(
+        'DWIGITAL_INVALID_RESPONSE',
+        'Status pesanan Dwigital tidak valid.',
+        502
+      );
+    }
+
+    if(String(body.data.reference||'')!==id){
+      throw createError(
+        'DWIGITAL_ORDER_REFERENCE_MISMATCH',
+        'Reference status pesanan dari Dwigital tidak cocok.',
+        502
+      );
+    }
+
+    return body.data;
+  }
+
   return Object.freeze({
     listProducts,
     listAllProducts,
-    getProduct
+    getProduct,
+    createOrder,
+    getOrder
   });
 }
 
