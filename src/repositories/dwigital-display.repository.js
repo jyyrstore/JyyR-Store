@@ -591,9 +591,63 @@ async function isMediaReferenced(path){
 }
 
 
+async function recordProviderProductView(type,providerProductId){
+  if(!['digital','game'].includes(type)){
+    throw displayError(
+      'INVALID_DWIGITAL_PROVIDER_TYPE',
+      'Tipe provider tidak didukung.'
+    );
+  }
+
+  const result=await query(
+    `UPDATE dwigital_display_products product
+     SET view_count=product.view_count+1
+     WHERE product.provider_type=$1
+       AND product.provider_product_id=$2
+       AND product.is_visible=true
+       AND EXISTS (
+         SELECT 1
+         FROM dwigital_display_categories category
+         JOIN dwigital_display_categories root
+           ON root.category_key=category.parent_key
+         WHERE category.category_key=product.category_key
+           AND category.is_active=true
+           AND root.is_active=true
+           AND root.parent_key IS NULL
+           AND root.category_key=CASE
+             WHEN $1='digital' THEN 'premium'
+             ELSE 'game'
+           END
+       )
+     RETURNING product.view_count`,
+    [type,String(providerProductId)]
+  );
+
+  return result.rows[0]
+    ? Number(result.rows[0].view_count)
+    : null;
+}
+
 async function listPublicCatalog(){
   const result=await query(
-    `SELECT
+    `WITH provider_purchase_counts AS (
+       SELECT
+         digital.provider_type,
+         digital.provider_product_id,
+         COUNT(DISTINCT digital.order_id)::integer AS purchase_count
+       FROM dwigital_orders digital
+       JOIN orders order_record
+         ON order_record.id=digital.order_id
+       WHERE order_record.status IN (
+         'PAID',
+         'PROCESSING',
+         'COMPLETED'
+       )
+       GROUP BY
+         digital.provider_type,
+         digital.provider_product_id
+     )
+     SELECT
        root.category_key AS root_key,
        root.name AS root_name,
        root.icon_key AS root_icon_key,
@@ -608,6 +662,8 @@ async function listPublicCatalog(){
        product.display_name,
        product.sort_order AS product_sort_order,
        product.cover_path,
+       COALESCE(product.view_count,0)::integer AS view_count,
+       COALESCE(purchase_metrics.purchase_count,0)::integer AS purchase_count,
        COALESCE(variant.display_name,source.payload->>'name') AS variant_name,
        variant.retail_price,
        variant.sort_order AS variant_sort_order,
@@ -624,6 +680,9 @@ async function listPublicCatalog(){
        ON source.variant_id=variant.variant_id
       AND source.type=product.provider_type
       AND source.is_active=true
+     LEFT JOIN provider_purchase_counts purchase_metrics
+       ON purchase_metrics.provider_type=product.provider_type
+      AND purchase_metrics.provider_product_id=product.provider_product_id
      WHERE root.category_key IN ('premium','game')
        AND root.parent_key IS NULL
        AND root.is_active=true
@@ -683,8 +742,12 @@ async function listPublicCatalog(){
       product={
         provider_type:row.provider_type,
         provider_product_id:row.provider_product_id,
+        category_key:row.category_key,
+        category_name:row.category_name,
         display_name:row.display_name,
         cover_path:row.cover_path,
+        view_count:Number(row.view_count||0),
+        purchase_count:Number(row.purchase_count||0),
         variants:[]
       };
       category._products.set(row.product_group_key,product);
@@ -713,6 +776,7 @@ async function listPublicCatalog(){
 module.exports={
   normalizeProviderProductSettings,
   listPublicCatalog,
+  recordProviderProductView,
   updateMediaPath,
   isMediaReferenced,
   listCategories,

@@ -8,41 +8,108 @@
 
   <div class="product-detail dwigital-product-detail">
     <div class="detail-media">
+      <button
+        type="button"
+        class="icon-button detail-share-button"
+        data-product-share
+        data-share-title="<%= providerProduct.display_name %>"
+        aria-label="Bagikan produk"
+        title="Bagikan produk"
+      >
+        <%- icon('share') %>
+      </button>
+
+      <%
+        const providerProductCoverUrl=String(
+          providerProduct.cover_url||''
+        ).trim();
+        const providerVariantCount=Array.isArray(providerProduct.variants)
+          ? providerProduct.variants.length
+          : 0;
+      %>
+
       <div class="detail-image-frame">
-        <% if(providerProduct.cover_url){ %>
-          <img
-            class="detail-image"
-            src="<%= providerProduct.cover_url %>"
-            alt="Cover <%= providerProduct.display_name %>"
-            loading="eager"
-            decoding="async"
-          >
-        <% } else { %>
-          <div class="image-fallback">
-            <%- icon('image') %>
-            <span>Gambar tidak tersedia</span>
-          </div>
-        <% } %>
+        <img
+          <% if(providerProductCoverUrl){ %>
+            src="<%= providerProductCoverUrl %>"
+          <% } %>
+          alt="Cover <%= providerProduct.display_name %>"
+          class="detail-image"
+          loading="eager"
+          decoding="async"
+          data-image-fallback
+          data-product-variant-selected-icon
+          data-product-variant-default-src="<%= providerProductCoverUrl %>"
+          <% if(!providerProductCoverUrl){ %>hidden<% } %>
+        >
+
+        <div
+          class="detail-image-fallback image-fallback"
+          <%= providerProductCoverUrl ? 'hidden' : '' %>
+        >
+          <%- icon('image') %>
+          <span>Gambar tidak tersedia</span>
+        </div>
+
+        <button
+          type="button"
+          class="detail-image-open"
+          data-product-image-open
+          aria-label="Lihat gambar penuh <%= providerProduct.display_name %>"
+          title="Lihat gambar penuh"
+          <% if(!providerProductCoverUrl){ %>hidden<% } %>
+        ></button>
+      </div>
+    </div>
+
+    <div class="detail-product-stats" aria-label="Informasi produk">
+      <div class="detail-product-stat">
+        <span class="detail-product-stat-value">
+          <%- icon('category-management','icon category-inline-icon') %>
+          <span>
+            <%= providerProduct.category_parent_name||'Katalog Digital' %>
+            <% if(providerProduct.category_name){ %>
+              · <%= providerProduct.category_name %>
+            <% } %>
+          </span>
+        </span>
+      </div>
+
+      <div class="detail-product-stat">
+        <span class="detail-product-stat-value">
+          <%- icon('package') %>
+          <span><%= providerVariantCount %> Varian</span>
+        </span>
+      </div>
+
+      <div class="detail-product-stat">
+        <span class="detail-product-stat-value">
+          <strong><%= Number(providerProduct.view_count||0).toLocaleString('id-ID') %></strong>
+          <span>Dilihat</span>
+        </span>
+      </div>
+
+      <div class="detail-product-stat">
+        <span class="detail-product-stat-value">
+          <strong><%= Number(providerProduct.purchase_count||0).toLocaleString('id-ID') %></strong>
+          <span>Pembelian</span>
+        </span>
       </div>
     </div>
 
     <div class="detail-copy">
-      <p class="eyebrow">
-        <%= providerProduct.category_parent_name||'Katalog Digital' %>
-        ·
-        <%= providerProduct.category_name %>
-      </p>
-
       <div class="detail-title-row">
         <h1><%= providerProduct.display_name %></h1>
       </div>
 
-      <p class="muted">
-        Pilih varian yang sesuai dan lihat harga jual untuk setiap pilihan.
+      <h2 class="detail-description-heading">Informasi Produk</h2>
+      <p class="detail-description">
+        Pilih varian yang sesuai untuk melihat harga jual dan melanjutkan pembelian.
       </p>
     </div>
 
     <form
+      id="dwigital-purchase-form"
       class="detail-variant-card dwigital-purchase-form"
       data-dwigital-purchase-form
       data-type="<%= providerProduct.provider_type %>"
@@ -214,21 +281,46 @@
         hidden
       ></p>
 
-      <% if(isAuthenticated){ %>
-        <button
-          class="button button-primary button-block"
-          type="submit"
-          data-dwigital-submit
-          disabled
+      <details
+        class="product-purchase-sheet"
+        data-product-purchase-sheet
+        open
+      >
+        <summary
+          class="product-purchase-sheet-handle"
+          data-product-purchase-sheet-handle
+          aria-label="Tutup panel aksi pembelian"
+          aria-controls="dwigital-purchase-sheet-actions"
+          aria-expanded="true"
         >
-          <%- icon('shopping-bag') %>
-          <span data-dwigital-submit-label>Beli Sekarang</span>
-        </button>
-      <% } else { %>
-        <a class="button button-primary button-block" href="/login">
-          Masuk untuk membeli
-        </a>
-      <% } %>
+          <span
+            class="product-purchase-sheet-handle-bar"
+            aria-hidden="true"
+          ></span>
+        </summary>
+
+        <div
+          class="product-purchase-sheet-actions"
+          id="dwigital-purchase-sheet-actions"
+          aria-label="Aksi pembelian Dwigital"
+        >
+          <% if(isAuthenticated){ %>
+            <button
+              class="button button-primary button-block"
+              type="submit"
+              data-dwigital-submit
+              disabled
+            >
+              <%- icon('shopping-bag') %>
+              <span data-dwigital-submit-label>Beli Sekarang</span>
+            </button>
+          <% } else { %>
+            <a class="button button-primary button-block" href="/auth/login">
+              Masuk untuk membeli
+            </a>
+          <% } %>
+        </div>
+      </details>
 
       <p class="muted small">
         Harga dan ketersediaan akan diverifikasi ulang ke supplier sebelum pesanan dibuat.
@@ -429,4 +521,201 @@
       <a class="product-detail-category-link" href="/store">Katalog Digital</a>.
     </p>
   </div>
+
+
+    <section
+      class="section product-detail-info"
+      aria-labelledby="dwigital-product-info-title"
+    >
+      <header class="product-detail-info-header">
+        <h2 id="dwigital-product-info-title">
+          Keunggulan Berbelanja Produk Digital di Jyyr Store
+        </h2>
+        <p class="product-detail-info-lead">
+          Pilih produk digital melalui katalog, periksa detail varian,
+          lalu lakukan transaksi dari halaman yang sama.
+        </p>
+      </header>
+
+      <h3>Harga Terjangkau dan Kompetitif</h3>
+      <p>
+        Harga setiap varian ditampilkan sebelum pembelian. Harga dan
+        ketersediaan diverifikasi kembali oleh server sebelum pesanan dibuat.
+      </p>
+
+      <h3>Katalog Produk Digital</h3>
+      <p>
+        Katalog Dwigital menyediakan kategori aplikasi premium, editing,
+        streaming dan musik, AI dan produktivitas, serta top up game
+        sesuai produk yang aktif ditampilkan.
+      </p>
+
+      <h3>Proses Cepat dan Terstruktur</h3>
+      <p>
+        Pilih varian, lengkapi target dan zona apabila diminta,
+        kemudian selesaikan pembayaran. Pesanan diproses berdasarkan
+        status dan respons penyedia produk.
+      </p>
+
+      <h3>Aman dan Terverifikasi</h3>
+      <p>
+        Informasi varian, harga, dan ketersediaan diperiksa kembali
+        oleh server sebelum transaksi dibuat.
+      </p>
+
+      <h3>Metode Pembayaran</h3>
+      <ul>
+        <li>Saldo Wallet JYYR, apabila saldo mencukupi.</li>
+        <li>Gateway / QRIS melalui penyedia pembayaran.</li>
+      </ul>
+
+      <h3>Customer Support Responsif</h3>
+      <p>
+        Apabila mengalami kendala pada transaksi atau pemrosesan pesanan,
+        gunakan kanal bantuan Jyyr Store dan sertakan informasi pesanan
+        yang relevan.
+      </p>
+
+      <h3>Garansi</h3>
+      <p>
+        Ketentuan garansi mengikuti aturan produk dan penyedia masing-masing.
+        Periksa informasi produk sebelum menyelesaikan pembelian.
+      </p>
+
+      <h3>Cara Memesan</h3>
+      <ol class="product-detail-steps">
+        <li>Pilih salah satu varian yang tersedia.</li>
+        <li>Isi target dan zona apabila kolom tersebut ditampilkan.</li>
+        <li>Periksa nominal pembayaran dan pilih metode pembayaran.</li>
+        <li>Selesaikan pembayaran dan pantau status pesanan.</li>
+      </ol>
+
+      <div class="product-detail-info-cta">
+        <p>
+          Lihat kategori dan produk digital lainnya di
+          <a class="product-detail-category-link" href="/store">Store</a>.
+        </p>
+      </div>
+    </section>
+
+    <section
+      class="product-reviews-section"
+      aria-labelledby="dwigital-product-reviews-title"
+    >
+      <div class="section-header product-reviews-header">
+        <div>
+          <h2 id="dwigital-product-reviews-title">Ulasan Pembeli</h2>
+          <p>
+            Modul ulasan Dwigital belum terhubung dengan sistem ulasan
+            produk lokal. Rating dan review tidak ditampilkan sebelum
+            tersedia data yang valid.
+          </p>
+        </div>
+      </div>
+
+      <div class="product-review-summary-grid product-review-summary-grid-single">
+        <section
+          class="product-review-chart panel"
+          aria-label="Status ulasan Dwigital"
+        >
+          <div class="product-review-panel-title">
+            <div>
+              <div class="eyebrow">Ulasan Dwigital</div>
+              <h3>Rating Pembelian</h3>
+            </div>
+            <span class="product-review-count">Belum tersedia</span>
+          </div>
+
+          <div class="product-review-summary-foot">
+            <strong>Rating belum tersedia</strong>
+            <span>
+              Data ulasan Dwigital belum terintegrasi.
+            </span>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <% const dwigitalRecommendationSections = [
+      {
+        id:'dwigital-related-title',
+        title:'Produk Terkait',
+        products:relatedProducts,
+        emptyTitle:'Belum ada produk terkait',
+        emptyDescription:'Belum ada produk lain dalam kategori ini.'
+      },
+      {
+        id:'dwigital-bestseller-title',
+        title:'Produk Terlaris',
+        products:bestSellerProducts,
+        emptyTitle:'Belum ada produk terlaris',
+        emptyDescription:'Belum ada data pembelian yang memenuhi kategori terlaris.'
+      }
+    ]; %>
+
+    <% dwigitalRecommendationSections.forEach(collection=>{ %>
+      <section
+        class="section product-detail-recommendations"
+        aria-labelledby="<%= collection.id %>"
+      >
+        <div class="section-header">
+          <div>
+            <h2 id="<%= collection.id %>"><%= collection.title %></h2>
+            <p>
+              <%= collection.title==='Produk Terlaris'
+                ? 'Produk dengan jumlah pesanan berhasil tertinggi.'
+                : 'Produk lain dalam kategori yang sama.' %>
+            </p>
+          </div>
+        </div>
+
+        <% if(collection.products.length){ %>
+          <div class="product-grid">
+            <% collection.products.forEach(product=>{ %>
+              <a
+                class="product-card provider-product-card"
+                href="/store/dwigital/<%= product.provider_type %>/<%= encodeURIComponent(product.provider_product_id) %>"
+                aria-label="Lihat detail <%= product.display_name %>"
+              >
+                <div class="product-thumb-wrap">
+                  <% if(product.cover_url){ %>
+                    <img
+                      class="product-thumb"
+                      src="<%= product.cover_url %>"
+                      alt="Cover <%= product.display_name %>"
+                      width="600"
+                      height="600"
+                      loading="lazy"
+                      decoding="async"
+                    >
+                  <% } else { %>
+                    <div class="image-fallback">
+                      <%- icon('image') %>
+                      <span>Gambar tidak tersedia</span>
+                    </div>
+                  <% } %>
+                </div>
+
+                <div class="product-body">
+                  <div class="product-action-row">
+                    <span class="product-title">
+                      <%= product.display_name %>
+                    </span>
+                  </div>
+                  <p class="muted small">
+                    <%= product.category_name %>
+                  </p>
+                </div>
+              </a>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <%- include('../partials/empty',{
+            title:collection.emptyTitle,
+            description:collection.emptyDescription
+          }) %>
+        <% } %>
+      </section>
+    <% }) %>
+
 </section>

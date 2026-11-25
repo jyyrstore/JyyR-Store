@@ -927,4 +927,48 @@ test('getOrder membaca status pesanan berdasarkan reference',async()=>{
   assert.deepEqual(result,order);
 });
 
+
+test('createOrder marks documented 422 order errors as permanent', async()=>{
+  const client=makeClient({
+    fetchImpl:async()=>jsonResponse({
+      success:false,
+      code:'invalid_target',
+      message:'Target tidak valid.'
+    },422)
+  });
+
+  await assert.rejects(
+    client.createOrder({
+      reference:'JYR-20261124-ABC123',
+      variant_id:1234,
+      target:'123456789'
+    }),
+    error=>error.code==='DWIGITAL_API_ERROR' &&
+      error.providerStatus===422 &&
+      error.providerCode==='invalid_target' &&
+      error.permanentRejection===true
+  );
+});
+
+test('createOrder keeps 503 maintenance responses transient', async()=>{
+  const client=makeClient({
+    fetchImpl:async()=>jsonResponse({
+      success:false,
+      code:'api_disabled',
+      message:'API sedang maintenance.'
+    },503)
+  });
+
+  await assert.rejects(
+    client.createOrder({
+      reference:'JYR-20261124-ABC123',
+      variant_id:1234,
+      target:'123456789'
+    }),
+    error=>error.providerStatus===503 &&
+      error.providerCode==='api_disabled' &&
+      error.permanentRejection===false
+  );
+});
+
 // END JYYR DWIGITAL CATALOG SYNC TESTS

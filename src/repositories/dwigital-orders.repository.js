@@ -375,6 +375,25 @@ async function setSubmissionUnknown(orderId,errorCode){
   return result.rowCount>0;
 }
 
+async function setSubmissionRejected(orderId,errorCode){
+  const result=await query(
+    `UPDATE dwigital_orders
+     SET supplier_status='failed',
+         supplier_refunded=false,
+         submission_state='rejected',
+         last_error_code=$2,
+         updated_at=now()
+     WHERE order_id=$1
+       AND submission_state='submitting'`,
+    [
+      orderId,
+      String(errorCode||'DWIGITAL_PROVIDER_REJECTED').slice(0,96)
+    ]
+  );
+
+  return result.rowCount>0;
+}
+
 async function applySupplierSnapshot(
   orderId,
   snapshot,
@@ -586,6 +605,13 @@ async function listForReconciliation({limit=25}={}){
            d.supplier_status='not_submitted'
            OR d.submission_state='unknown'
            OR (
+             d.submission_state='rejected'
+             AND GREATEST(
+               d.updated_at,
+               COALESCE(d.last_polled_at,'epoch'::timestamptz)
+             ) < now()-interval '2 minutes'
+           )
+           OR (
              d.submission_state='submitting'
              AND COALESCE(d.submission_started_at,'epoch'::timestamptz)
                  < now()-interval '2 minutes'
@@ -633,6 +659,7 @@ module.exports={
   findByReference,
   claimForSubmission,
   setSubmissionUnknown,
+  setSubmissionRejected,
   applySupplierSnapshot,
   listForReconciliation,
   markPollError

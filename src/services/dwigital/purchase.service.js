@@ -591,6 +591,68 @@ function createDwigitalPurchaseService(dependencies={}){
         refunded:saved?.supplier_refunded===true
       };
     }catch(error){
+      if(
+        error?.permanentRejection===true&&
+        typeof orders.setSubmissionRejected==='function'
+      ){
+        const providerCode=String(
+          error.providerCode||'request_rejected'
+        )
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]/g,'_')
+          .slice(0,64)||'request_rejected';
+
+        let rejected=false;
+
+        try{
+          rejected=await orders.setSubmissionRejected(
+            orderId,
+            `DWIGITAL_PROVIDER_REJECTED:${providerCode}`
+          );
+        }catch(persistError){
+          log('warn','dwigital_provider_rejection_persist_failed',{
+            orderId:String(orderId),
+            code:String(
+              persistError?.code||'DWIGITAL_REJECTION_PERSIST_FAILED'
+            ).slice(0,96)
+          });
+        }
+
+        if(rejected){
+          let refunded=false;
+
+          try{
+            await refundService.refundDwigitalOrder(
+              orderId,
+              'Pesanan Dwigital ditolak supplier sebelum dibuat; dana dikembalikan ke Wallet JYYR.'
+            );
+            refunded=true;
+          }catch(refundError){
+            log('warn','dwigital_provider_rejection_refund_deferred',{
+              orderId:String(orderId),
+              code:String(
+                refundError?.code||'DWIGITAL_REJECTION_REFUND_DEFERRED'
+              ).slice(0,96)
+            });
+          }
+
+          log('warn','dwigital_supplier_order_rejected',{
+            orderId:String(orderId),
+            code:providerCode,
+            providerStatus:Number(error.providerStatus)||null
+          });
+
+          return {
+            orderId,
+            submitted:false,
+            rejected:true,
+            refunded,
+            code:providerCode
+          };
+        }
+      }
+
       await orders.setSubmissionUnknown(
         orderId,
         error?.code||'DWIGITAL_SUBMISSION_UNKNOWN'
@@ -696,6 +758,16 @@ function createDwigitalPurchaseService(dependencies={}){
       const orderId=candidate.order_id;
 
       try{
+        if(candidate.submission_state==='rejected'){
+          await refundService.refundDwigitalOrder(
+            orderId,
+            'Rekonsiliasi: refund penolakan pesanan supplier Dwigital.'
+          );
+
+          result.updated++;
+          continue;
+        }
+
         if(
           candidate.supplier_status==='not_submitted'||
           candidate.submission_state==='unknown'||

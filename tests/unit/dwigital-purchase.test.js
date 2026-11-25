@@ -239,6 +239,7 @@ function buildJYYRDwigitalFulfillmentHarness(options={}){
     payload:null,
     snapshots:[],
     unknown:[],
+    rejected:[],
     refunds:[],
     polled:[],
     snapshotOptions:[]
@@ -275,6 +276,10 @@ function buildJYYRDwigitalFulfillmentHarness(options={}){
     },
     setSubmissionUnknown:async(id,code)=>{
       calls.unknown.push({id,code});
+      return true;
+    },
+    setSubmissionRejected:async(id,code)=>{
+      calls.rejected.push({id,code});
       return true;
     },
     findByReference:async()=>({
@@ -398,6 +403,51 @@ test('Dwigital fulfillment menandai hasil network tidak pasti tanpa refund otoma
   assert.equal(harness.calls.unknown.length,1);
   assert.equal(harness.calls.unknown[0].code,'DWIGITAL_TIMEOUT');
   assert.equal(harness.calls.refunds.length,0);
+});
+
+
+test('Dwigital fulfillment terminally refunds a permanent supplier rejection',async()=>{
+  const harness=buildJYYRDwigitalFulfillmentHarness({
+    createError:Object.assign(
+      new Error('Target tidak valid.'),
+      {
+        code:'DWIGITAL_API_ERROR',
+        providerStatus:422,
+        providerCode:'invalid_target',
+        permanentRejection:true
+      }
+    )
+  });
+
+  const result=await harness.service.fulfillOrder(harness.orderId);
+
+  assert.equal(result.submitted,false);
+  assert.equal(result.rejected,true);
+  assert.equal(result.refunded,true);
+  assert.equal(result.code,'invalid_target');
+  assert.equal(harness.calls.rejected.length,1);
+  assert.equal(harness.calls.unknown.length,0);
+  assert.equal(harness.calls.refunds.length,1);
+});
+
+test('Dwigital reconciliation refunds a persisted rejected submission',async()=>{
+  const harness=buildJYYRDwigitalFulfillmentHarness({
+    candidates:[{
+      order_id:'00000000-0000-4000-8000-000000000001',
+      supplier_reference:'JYR-20261124-ABC123',
+      supplier_status:'failed',
+      supplier_refunded:false,
+      submission_state:'rejected'
+    }]
+  });
+
+  const result=await harness.service.reconcilePending({limit:10});
+
+  assert.equal(result.scanned,1);
+  assert.equal(result.updated,1);
+  assert.equal(harness.calls.refunds.length,1);
+  assert.equal(harness.calls.polled.length,0);
+  assert.equal(harness.calls.snapshots.length,0);
 });
 
 test('Dwigital gagal baru memanggil refund jika supplier refunded true',async()=>{

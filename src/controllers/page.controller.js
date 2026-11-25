@@ -174,9 +174,68 @@ async function dwigitalProductDetail(req,res,next){
         : null
     }));
 
-    const walletState=req.user?.id
-      ? await wallet.get(req.user.id)
-      : null;
+    // Catat view sebelum membaca katalog agar metrik terbaru terbaca.
+    const viewCount=await displayRepo.recordProviderProductView(
+      type,
+      productId
+    );
+
+    const [publicCatalog,walletState]=await Promise.all([
+      displayRepo.listPublicCatalog(),
+      req.user?.id
+        ? wallet.get(req.user.id)
+        : Promise.resolve(null)
+    ]);
+
+    const catalogProducts=publicCatalog.flatMap(root=>
+      root.subcategories.flatMap(category=>
+        category.products.map(product=>({
+          ...product,
+          category_key:category.category_key,
+          category_name:category.name,
+          root_key:root.category_key
+        }))
+      )
+    );
+
+    const currentCatalogProduct=catalogProducts.find(product=>
+      product.provider_type===type&&
+      product.provider_product_id===productId
+    );
+
+    providerProduct.view_count=Number(
+      viewCount??currentCatalogProduct?.view_count??0
+    );
+
+    providerProduct.purchase_count=Number(
+      currentCatalogProduct?.purchase_count||0
+    );
+
+    const recommendationProducts=catalogProducts
+      .filter(product=>
+        product.provider_type!==type||
+        product.provider_product_id!==productId
+      )
+      .map(product=>({
+        ...product,
+        cover_url:product.cover_path
+          ? storage.publicUrl(publicAssetBucket,product.cover_path)
+          : null
+      }));
+
+    const relatedProducts=recommendationProducts
+      .filter(product=>
+        product.category_key===providerProduct.category_key
+      )
+      .slice(0,4);
+
+    const bestSellerProducts=recommendationProducts
+      .filter(product=>Number(product.purchase_count)>0)
+      .sort((a,b)=>
+        Number(b.purchase_count)-Number(a.purchase_count)||
+        Number(b.view_count)-Number(a.view_count)
+      )
+      .slice(0,4);
 
     return res.render(
       'app',
@@ -184,6 +243,8 @@ async function dwigitalProductDetail(req,res,next){
         title:`${providerProduct.display_name} | Jyyr Store`,
         view:'pages/dwigital-product-detail',
         providerProduct,
+        relatedProducts,
+        bestSellerProducts,
         isAuthenticated:Boolean(req.user?.id),
         walletBalance:Number(walletState?.balance||0)
       })

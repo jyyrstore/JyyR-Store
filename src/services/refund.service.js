@@ -42,10 +42,13 @@ async function refundDwigitalOrder(orderId,reason,client){
       [orderId]
     )).rows[0];
 
+    const submissionRejected=
+      String(digital?.submission_state||'').toLowerCase()==='rejected';
+
     if(
       !digital||
       String(digital.supplier_status||'').toLowerCase()!=='failed'||
-      digital.supplier_refunded!==true
+      (digital.supplier_refunded!==true&&!submissionRejected)
     ){
       throw Object.assign(
         new Error('Refund supplier belum dikonfirmasi.'),
@@ -143,7 +146,7 @@ async function refundDwigitalOrder(orderId,reason,client){
           refundId:refundRow.id,
           orderId:order.id,
           provider:'dwigital',
-          source:'supplier_refund'
+          source:submissionRejected?'provider_rejection':'supplier_refund'
         })
       ]
     );

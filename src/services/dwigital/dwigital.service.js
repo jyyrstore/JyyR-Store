@@ -179,11 +179,36 @@ function createDwigitalClient(options={}){
 
     if(!response.ok||body.success===false){
       const rateLimited=response.status===429;
+      const providerCode=typeof body.code==='string'
+        ? body.code.trim().toLowerCase().slice(0,64)
+        : '';
+      const providerStatus=Number(response.status);
       const providerMessage=typeof body.message==='string'
         ? body.message.trim().slice(0,500)
         : '';
+      const permanentCodes=new Set([
+        'invalid_key',
+        'ip_not_allowed',
+        'validation_error',
+        'insufficient_balance',
+        'daily_limit_reached',
+        'price_exceeded',
+        'variant_unavailable',
+        'invalid_target',
+        'invalid_quantity',
+        'webhook_not_set',
+        'production_only'
+      ]);
+      const permanentRejection=(
+        (
+          providerStatus>=400&&
+          providerStatus<500&&
+          ![408,409,425,429].includes(providerStatus)
+        )||
+        permanentCodes.has(providerCode)
+      );
 
-      throw createError(
+      const error=createError(
         rateLimited
           ? 'DWIGITAL_RATE_LIMITED'
           : 'DWIGITAL_API_ERROR',
@@ -191,6 +216,12 @@ function createDwigitalClient(options={}){
           `Dwigital API mengembalikan HTTP ${response.status}.`,
         rateLimited?429:502
       );
+
+      error.providerStatus=providerStatus;
+      error.providerCode=providerCode||null;
+      error.permanentRejection=permanentRejection;
+
+      throw error;
     }
 
     return body;

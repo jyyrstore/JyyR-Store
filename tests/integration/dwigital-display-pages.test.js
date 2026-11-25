@@ -70,9 +70,81 @@ test('Dwigital card opens detail page with public variants and retail prices',()
   assert.match(detailView,/providerProduct\.variants\.forEach/);
   assert.match(detailView,/variant\.display_name/);
   assert.match(detailView,/formatIDR\(variant\.retail_price\)/);
-  assert.doesNotMatch(detailView,/data-buy-now|data-add-cart|product-purchase-sheet/);
+  assert.doesNotMatch(
+    detailView,
+    /data-buy-now|data-add-cart/
+);
+assert.match(detailView,/data-product-purchase-sheet/);
 });
 
+
+
+test('Dwigital detail login link uses the canonical auth route',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+
+  assert.match(detailView,/href="\/auth\/login"/);
+  assert.doesNotMatch(detailView,/href="\/login"/);
+});
+
+
+test('Dwigital detail page reuses local product detail presentation components',()=>{
+  const localView=read('views/pages/product-detail.ejs');
+  const dwigitalView=read('views/pages/dwigital-product-detail.ejs');
+
+  const sharedClasses=[
+    'detail-media',
+    'detail-share-button',
+    'detail-image-frame',
+    'detail-image-open',
+    'detail-product-stats',
+    'detail-product-stat',
+    'detail-copy',
+    'detail-title-row',
+    'detail-description-heading',
+    'detail-description',
+    'detail-variant-card',
+    'detail-variant-title',
+    'detail-variant-options',
+    'product-variant-card-option'
+  ];
+
+  const hasClass=(markup,className)=>(
+    [...markup.matchAll(/\bclass=["']([^"']+)["']/g)]
+      .some(match=>match[1].split(/\s+/).includes(className))
+  );
+
+  for(const component of sharedClasses){
+    assert.ok(
+      hasClass(localView,component),
+      `Komponen canonical tidak ditemukan di halaman lokal: ${component}`
+    );
+
+    assert.ok(
+      hasClass(dwigitalView,component),
+      `Dwigital belum menggunakan komponen canonical: ${component}`
+    );
+  }
+
+  const sharedAttributes=[
+    'data-product-share',
+    'data-product-image-open',
+    'data-image-fallback',
+    'data-product-variant-selected-icon'
+  ];
+
+  for(const attribute of sharedAttributes){
+    assert.ok(localView.includes(attribute),`Atribut lokal tidak ditemukan: ${attribute}`);
+    assert.ok(dwigitalView.includes(attribute),`Atribut Dwigital tidak ditemukan: ${attribute}`);
+  }
+
+  assert.match(dwigitalView,/href="\/auth\/login"/);
+  assert.match(dwigitalView,/data-dwigital-purchase-form/);
+  assert.match(dwigitalView,/data-dwigital-target/);
+  assert.match(dwigitalView,/data-dwigital-zone/);
+  assert.match(dwigitalView,/data-dwigital-balance/);
+  assert.match(dwigitalView,/data-dwigital-gateway/);
+  assert.match(dwigitalView,/data-dwigital-submit/);
+});
 
 test('Dwigital detail form supports supplier-priced variants and buyer payment',()=>{
   const detailView=read('views/pages/dwigital-product-detail.ejs');
@@ -87,6 +159,59 @@ test('Dwigital detail form supports supplier-priced variants and buyer payment',
   assert.match(detailView,/extra_field|canPurchase/);
   assert.match(controller,/walletBalance/);
   assert.match(controller,/isAuthenticated/);
+});
+
+
+test('Dwigital permanent rejection state is migration-backed and refundable',()=>{
+  const repository=read('src/repositories/dwigital-orders.repository.js');
+  const refund=read('src/services/refund.service.js');
+  const migration=read('database/migrations/052_dwigital_rejected_submission.sql');
+
+  assert.match(repository,/async function setSubmissionRejected/);
+  assert.match(repository,/d\.submission_state='rejected'/);
+  assert.match(refund,/submissionRejected/);
+  assert.match(migration,/submission_state[\s\S]*'rejected'/);
+});
+
+
+test('Dwigital detail page exposes metrics and canonical sections',()=>{
+  const controller=read('src/controllers/page.controller.js');
+  const repository=read('src/repositories/dwigital-display.repository.js');
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+
+  assert.match(repository,/recordProviderProductView/);
+  assert.match(repository,/provider_purchase_counts/);
+  assert.match(repository,/view_count/);
+  assert.match(repository,/purchase_count/);
+
+  assert.match(controller,/recordProviderProductView/);
+  assert.match(controller,/relatedProducts/);
+  assert.match(controller,/bestSellerProducts/);
+
+  assert.match(detailView,/detail-product-stats/);
+  assert.match(detailView,/product-detail-info/);
+  assert.match(detailView,/product-reviews-section/);
+  assert.match(detailView,/product-detail-recommendations/);
+  assert.match(detailView,/data-product-purchase-sheet/);
+  assert.match(detailView,/id="dwigital-purchase-form"/);
+
+  const form=detailView.match(
+    /<form\b(?=[^>]*\bdata-dwigital-purchase-form\b)[^>]*>([\s\S]*?)<\/form>/
+  );
+
+  assert.ok(form,'Dwigital purchase form must exist');
+
+  assert.match(
+    form[1],
+    /data-product-purchase-sheet/,
+    'Action sheet must remain inside the purchase form'
+  );
+
+  assert.match(
+    form[1],
+    /data-dwigital-submit/,
+    'Purchase submit must remain inside the purchase form'
+  );
 });
 
 test('Dwigital order detail uses owner-scoped decrypted supplier result',()=>{
