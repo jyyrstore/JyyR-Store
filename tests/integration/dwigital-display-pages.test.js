@@ -98,7 +98,6 @@ test('Dwigital detail page reuses local product detail presentation components',
     'detail-image-open',
     'detail-product-stats',
     'detail-product-stat',
-    'detail-copy',
     'detail-title-row',
     'detail-description-heading',
     'detail-description',
@@ -125,6 +124,19 @@ test('Dwigital detail page reuses local product detail presentation components',
     );
   }
 
+  assert.ok(
+    hasClass(localView,'detail-copy'),
+    'Halaman produk lokal tetap memakai detail-copy canonical'
+  );
+
+  assert.doesNotMatch(
+    dwigitalView,
+    /class=["'][^"']*detail-copy[^"']*["']/,
+    'Dwigital tidak boleh memakai wrapper card detail-copy'
+  );
+
+  assert.match(dwigitalView,/class="dwigital-product-copy"/);
+
   const sharedAttributes=[
     'data-product-share',
     'data-product-image-open',
@@ -138,12 +150,128 @@ test('Dwigital detail page reuses local product detail presentation components',
   }
 
   assert.match(dwigitalView,/href="\/auth\/login"/);
+
+  const localStatsStart=localView.indexOf(
+    '<div class="detail-product-stats" aria-label="Statistik produk">'
+  );
+  const localStatsEnd=localView.indexOf(
+    "<% if(product.pricing_mode==='VARIANT')",
+    localStatsStart
+  );
+
+  const dwigitalStatsStart=dwigitalView.indexOf(
+    '<div class="detail-product-stats"'
+  );
+  const dwigitalStatsEnd=dwigitalView.indexOf(
+    '<form\n      id="dwigital-purchase-form"',
+    dwigitalStatsStart
+  );
+
+  assert.ok(localStatsStart>=0&&localStatsEnd>localStatsStart);
+  assert.ok(dwigitalStatsStart>=0&&dwigitalStatsEnd>dwigitalStatsStart);
+
+  const localStats=localView.slice(localStatsStart,localStatsEnd);
+  const dwigitalStats=dwigitalView.slice(
+    dwigitalStatsStart,
+    dwigitalStatsEnd
+  );
+
+  for(const marker of [
+    'category-name-with-icon',
+    "icon('eye')",
+    "icon('tag-sale-price')",
+    "notation: 'compact'"
+  ]){
+    assert.ok(localStats.includes(marker),`Local marker: ${marker}`);
+    assert.ok(
+      dwigitalStats.includes(marker),
+      `Dwigital statistik harus memakai pola canonical lokal: ${marker}`
+    );
+  }
+
+  assert.doesNotMatch(dwigitalStats,/icon\('package'\)/);
   assert.match(dwigitalView,/data-dwigital-purchase-form/);
   assert.match(dwigitalView,/data-dwigital-target/);
   assert.match(dwigitalView,/data-dwigital-zone/);
   assert.match(dwigitalView,/data-dwigital-balance/);
   assert.match(dwigitalView,/data-dwigital-gateway/);
   assert.match(dwigitalView,/data-dwigital-submit/);
+});
+
+
+test('Dwigital header keeps selected price aligned with variant title',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+  const pagesCss=read('public/css/pages.css');
+
+  const form=detailView.match(
+    /<form\b(?=[^>]*\bdata-dwigital-purchase-form\b)[^>]*>([\s\S]*?)<\/form>/
+  );
+
+  assert.ok(form,'Dwigital purchase form must exist');
+
+  const heading=form[1].match(
+    /<div class="dwigital-variant-heading">([\s\S]*?)<\/div>/
+  );
+
+  assert.ok(
+    heading,
+    'Variant heading and selected price must share one header row'
+  );
+
+  assert.match(
+    heading[1],
+    /<h2 class="detail-variant-title" id="dwigital-variant-title">[\s\S]*Pilihan Varian &amp; Harga[\s\S]*<\/h2>/
+  );
+
+  assert.match(
+    heading[1],
+    /<strong class="dwigital-variant-total" data-dwigital-total>—<\/strong>/
+  );
+
+  assert.equal(
+    (form[1].match(/data-dwigital-total/g)||[]).length,
+    1,
+    'Selected price must have exactly one canonical element'
+  );
+
+  assert.doesNotMatch(
+    form[1],
+    /summary-row total|Total pembayaran/,
+    'Separate total payment row must be removed'
+  );
+
+  assert.doesNotMatch(
+    form[1],
+    /Harga dan ketersediaan akan diverifikasi ulang ke supplier/,
+    'Supplier helper text must be removed'
+  );
+
+  assert.match(
+    detailView,
+    /const total=form\.querySelector\('\[data-dwigital-total\]'\);/,
+    'Existing selected-price updater must remain connected'
+  );
+
+  assert.match(
+    detailView,
+    /total\.textContent=money\(selectedPrice\);/,
+    'Selected variant must continue updating the displayed price'
+  );
+
+  assert.match(
+    pagesCss,
+    /\.dwigital-variant-heading\{[^}]*display:flex[^}]*align-items:center[^}]*justify-content:space-between/s
+  );
+
+  assert.match(
+    pagesCss,
+    /\.dwigital-variant-heading \.detail-variant-title\{[^}]*margin:0/s
+  );
+
+  assert.match(
+    pagesCss,
+    /\.dwigital-variant-total\{[^}]*white-space:nowrap/s
+  );
 });
 
 test('Dwigital detail form supports supplier-priced variants and buyer payment',()=>{
@@ -162,6 +290,156 @@ test('Dwigital detail form supports supplier-priced variants and buyer payment',
 });
 
 
+
+test('Dwigital purchase sheet adds a live selected variant card above buy now',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+  const pagesCss=read('public/css/pages.css');
+
+  const cardIndex=detailView.indexOf(
+    'data-dwigital-selected-variant-card'
+  );
+  const submitIndex=detailView.indexOf('data-dwigital-submit');
+
+  assert.ok(
+    cardIndex>=0&&submitIndex>cardIndex,
+    'Selected variant card must be added before the buy button'
+  );
+
+  for(const marker of [
+    'data-dwigital-selected-variant-icon',
+    'data-dwigital-selected-variant-name',
+    'data-dwigital-selected-variant-price'
+  ]){
+    assert.ok(detailView.includes(marker),`Missing selected variant field: ${marker}`);
+  }
+
+  assert.match(
+    detailView,
+    /option\.querySelector\(\s*'\.product-variant-card-details strong'\s*\)/
+  );
+  assert.match(
+    detailView,
+    /option\.querySelector\(\s*'\.product-variant-card-price'\s*\)/
+  );
+  assert.match(
+    detailView,
+    /sourceIcon\.childNodes[\s\S]*node=>node\.cloneNode\(true\)/
+  );
+  assert.match(detailView,/selectedVariantCard\.hidden=false;/);
+  assert.match(
+    detailView,
+    /const submitLabel=submit\?\.querySelector\('\[data-dwigital-submit-label\]'\)\|\|null;/,
+    'External submit label must be resolved from the external submit button'
+  );
+
+  assert.match(
+    pagesCss,
+    /\.dwigital-selected-variant-card\{[^}]*grid-column:1\/-1/s
+  );
+  assert.match(
+    pagesCss,
+    /\.dwigital-selected-variant-card\[hidden\]\{[^}]*display:none/s
+  );
+  assert.match(
+    pagesCss,
+    /\.product-purchase-sheet-actions > \[data-dwigital-submit\]\{[^}]*grid-column:1\/-1/s
+  );
+
+  assert.match(detailView,/const firstAvailable=options\.find/);
+  assert.match(detailView,/selectVariant\(firstAvailable\)/);
+});
+
+
+test('Dwigital payment choices move into purchase sheet and remain form-associated',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+  const pagesCss=read('public/css/pages.css');
+
+  const form=detailView.match(
+    /<form\b(?=[^>]*\bdata-dwigital-purchase-form\b)[^>]*>([\s\S]*?)<\/form>/
+  );
+
+  assert.ok(form,'Dwigital purchase form must exist');
+  assert.doesNotMatch(
+    form[1],
+    /<fieldset class="payment-group">/,
+    'Payment group must be moved outside the Dwigital form'
+  );
+
+  const sheetStart=detailView.indexOf(
+    '<details\n    class="product-purchase-sheet"'
+  );
+  const sheetEnd=detailView.indexOf('</details>',sheetStart);
+  const actionsStart=detailView.indexOf(
+    'id="dwigital-purchase-sheet-actions"',
+    sheetStart
+  );
+  const paymentStart=detailView.indexOf(
+    '<fieldset class="payment-group">',
+    sheetStart
+  );
+  const cardStart=detailView.indexOf(
+    'data-dwigital-selected-variant-card',
+    sheetStart
+  );
+  const submitStart=detailView.indexOf('data-dwigital-submit',sheetStart);
+
+  assert.ok(
+    sheetStart>=0&&
+    actionsStart>sheetStart&&
+    paymentStart>actionsStart&&
+    cardStart>paymentStart&&
+    submitStart>cardStart&&
+    sheetEnd>submitStart,
+    'Payment group must appear before selected variant card and buy button'
+  );
+
+  const paymentEnd=detailView.indexOf('</fieldset>',paymentStart);
+  assert.ok(paymentEnd>paymentStart);
+
+  const paymentMarkup=detailView.slice(
+    paymentStart,
+    paymentEnd+'</fieldset>'.length+paymentStart
+  );
+  const radioInputs=paymentMarkup.match(/<input\b[^>]*>/g)||[];
+
+  assert.equal(radioInputs.length,2);
+
+  for(const input of radioInputs){
+    assert.match(input,/form="dwigital-purchase-form"/);
+    assert.match(input,/name="dwigitalPaymentMethod"/);
+  }
+
+  assert.match(
+    detailView,
+    /const walletChoice=Array\.from\(form\.elements\)\.find/
+  );
+  assert.match(
+    detailView,
+    /control=>control\.matches\('\[data-dwigital-balance\]'\)/
+  );
+  assert.match(
+    detailView,
+    /const gatewayChoice=Array\.from\(form\.elements\)\.find/
+  );
+  assert.match(
+    detailView,
+    /control=>control\.matches\('\[data-dwigital-gateway\]'\)/
+  );
+  assert.match(
+    detailView,
+    /control\.name==='dwigitalPaymentMethod'&&control\.checked/
+  );
+  assert.doesNotMatch(
+    detailView,
+    /form\.querySelector\('input\[name="dwigitalPaymentMethod"\]:checked'\)/
+  );
+
+  assert.match(
+    pagesCss,
+    /\.product-purchase-sheet-actions > \.payment-group\{[^}]*grid-column:1\/-1/s
+  );
+});
+
 test('Dwigital permanent rejection state is migration-backed and refundable',()=>{
   const repository=read('src/repositories/dwigital-orders.repository.js');
   const refund=read('src/services/refund.service.js');
@@ -173,6 +451,62 @@ test('Dwigital permanent rejection state is migration-backed and refundable',()=
   assert.match(migration,/submission_state[\s\S]*'rejected'/);
 });
 
+
+
+test('Dwigital product title and information remain grouped without a card below variants',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+
+  const form=detailView.match(
+    /<form\b(?=[^>]*\bdata-dwigital-purchase-form\b)[^>]*>[\s\S]*?<\/form>/
+  );
+  assert.ok(form,'Dwigital variant form must exist');
+
+  const cardStart=detailView.indexOf('<div class="dwigital-product-copy">');
+  const headingStart=detailView.indexOf(
+    '<h2 class="detail-description-heading">Informasi Produk</h2>',
+    cardStart
+  );
+  const descriptionEnd=detailView.indexOf('</p>',headingStart);
+  const cardEnd=detailView.indexOf('</div>',descriptionEnd)+6;
+
+  assert.ok(cardStart>=0&&headingStart>cardStart);
+  assert.ok(descriptionEnd>headingStart&&cardEnd>descriptionEnd);
+
+  const formEnd=detailView.indexOf('</form>',form.index)+7;
+  assert.ok(
+    cardStart>formEnd,
+    'Complete product information card must follow the variant form'
+  );
+
+  const cardMarkup=detailView.slice(cardStart,cardEnd);
+
+  assert.doesNotMatch(
+    cardMarkup,
+    /detail-copy/,
+    'Product information text must not use the card styling class'
+  );
+
+  assert.match(
+    cardMarkup,
+    /<div class="detail-title-row">\s*<h1><%= providerProduct\.display_name %><\/h1>/
+  );
+  assert.match(
+    cardMarkup,
+    /<h2 class="detail-description-heading">Informasi Produk<\/h2>/
+  );
+  assert.match(cardMarkup,/class="detail-description"/);
+
+  assert.equal(
+    (detailView.match(/<div class="dwigital-product-copy">/g)||[]).length,
+    1,
+    'Product name and information must remain in one unboxed text group'
+  );
+
+  assert.doesNotMatch(
+    form[0],
+    /<h1>|Informasi Produk|detail-description/
+  );
+});
 
 test('Dwigital detail page exposes metrics and canonical sections',()=>{
   const controller=read('src/controllers/page.controller.js');
@@ -195,22 +529,70 @@ test('Dwigital detail page exposes metrics and canonical sections',()=>{
   assert.match(detailView,/data-product-purchase-sheet/);
   assert.match(detailView,/id="dwigital-purchase-form"/);
 
+  const statsStart=detailView.indexOf('<div class="detail-product-stats"');
+  const statsEnd=detailView.indexOf(
+    '<form\n      id="dwigital-purchase-form"',
+    statsStart
+  );
+
+  assert.ok(statsStart>=0&&statsEnd>statsStart);
+
+  const statsMarkup=detailView.slice(statsStart,statsEnd);
+
+  assert.equal(
+    (statsMarkup.match(/<div class="detail-product-stat">/g)||[]).length,
+    3,
+    'Dwigital stats must contain only three labels: category, views, and purchases'
+  );
+
+  assert.doesNotMatch(
+    statsMarkup,
+    /\bVarian\b|providerVariantCount/,
+    'Total Varian label must be removed from Dwigital cover statistics'
+  );
+
   const form=detailView.match(
     /<form\b(?=[^>]*\bdata-dwigital-purchase-form\b)[^>]*>([\s\S]*?)<\/form>/
   );
 
   assert.ok(form,'Dwigital purchase form must exist');
 
-  assert.match(
+  assert.doesNotMatch(
     form[1],
-    /data-product-purchase-sheet/,
-    'Action sheet must remain inside the purchase form'
+    /data-product-purchase-sheet|data-dwigital-submit/,
+    'Action sheet must sit outside the product detail card'
   );
 
   assert.match(
-    form[1],
-    /data-dwigital-submit/,
-    'Purchase submit must remain inside the purchase form'
+    detailView,
+    /form="dwigital-purchase-form"/,
+    'External purchase submit must remain associated with the Dwigital form'
+  );
+
+  assert.match(
+    detailView,
+    /const submit=Array\.from\(form\.elements\)\.find\(control=>control\.matches\('\[data-dwigital-submit\]'\)\)\|\|null;/,
+    'Purchase script must resolve its associated external submit control'
+  );
+
+  const detailContainerEnd=detailView.indexOf(
+    '\n  </div>\n\n  <details',
+    form.index
+  );
+  const sheetIndex=detailView.indexOf(
+    '<details\n    class="product-purchase-sheet"',
+    form.index+form[0].length
+  );
+  const sheetScriptIndex=detailView.indexOf(
+    '<script nonce=',
+    sheetIndex
+  );
+
+  assert.ok(
+    detailContainerEnd>=0 &&
+    sheetIndex>detailContainerEnd &&
+    sheetScriptIndex>sheetIndex,
+    'Action sheet and initializer must sit after the product detail card'
   );
 });
 
