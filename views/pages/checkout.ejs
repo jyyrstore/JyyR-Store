@@ -5,6 +5,7 @@
   recipient?.dialCode&&
   recipient?.phone
 ); %>
+<% const isDwigitalCheckout=Boolean(preview.dwigital); %>
 <section class="page-shell">
   <div class="page-header">
     <div>
@@ -73,32 +74,55 @@
     </div>
 
     <aside class="summary-card">
-      <div class="eyebrow">Kontak Penerima</div>
+      <% if(isDwigitalCheckout){ %>
+        <div class="eyebrow">Detail Tujuan</div>
 
-      <% if(recipientComplete){ %>
         <div class="recipient-checkout-summary">
           <div class="summary-row">
-            <span>Email</span>
-            <strong><%= recipient.email %></strong>
+            <span><%= preview.dwigital.targetLabel %></span>
+            <strong><%= preview.dwigital.target %></strong>
           </div>
-          <div class="summary-row">
-            <span>WhatsApp</span>
-            <strong><%= recipient.dialCode %><%= recipient.phone %></strong>
-          </div>
-          <a class="button button-secondary button-block" href="/cart">
-            Ubah kontak
-          </a>
+
+          <% if(preview.dwigital.zoneVisible){ %>
+            <div class="summary-row">
+              <span><%= preview.dwigital.zoneLabel %></span>
+              <strong><%= preview.dwigital.targetZone || '—' %></strong>
+            </div>
+          <% } %>
+
+          <a
+            class="button button-secondary button-block"
+            href="<%= preview.dwigital.detailUrl %>"
+          >Ubah varian / target</a>
         </div>
       <% } else { %>
-        <div class="recipient-checkout-summary recipient-checkout-summary--warning">
-          <strong>Kontak penerima belum lengkap.</strong>
-          <span>
-            Lengkapi email dan WhatsApp di Keranjang sebelum membayar.
-          </span>
-          <a class="button button-secondary button-block" href="/cart">
-            Lengkapi kontak di Keranjang
-          </a>
-        </div>
+        <div class="eyebrow">Kontak Penerima</div>
+
+        <% if(recipientComplete){ %>
+          <div class="recipient-checkout-summary">
+            <div class="summary-row">
+              <span>Email</span>
+              <strong><%= recipient.email %></strong>
+            </div>
+            <div class="summary-row">
+              <span>WhatsApp</span>
+              <strong><%= recipient.dialCode %><%= recipient.phone %></strong>
+            </div>
+            <a class="button button-secondary button-block" href="/cart">
+              Ubah kontak
+            </a>
+          </div>
+        <% } else { %>
+          <div class="recipient-checkout-summary recipient-checkout-summary--warning">
+            <strong>Kontak penerima belum lengkap.</strong>
+            <span>
+              Lengkapi email dan WhatsApp di Keranjang sebelum membayar.
+            </span>
+            <a class="button button-secondary button-block" href="/cart">
+              Lengkapi kontak di Keranjang
+            </a>
+          </div>
+        <% } %>
       <% } %>
 
       <hr>
@@ -141,6 +165,7 @@
           </label>
 
           <% if(isOwner){ %>
+            <% if(!isDwigitalCheckout){ %>
             <label class="payment-option <%= selectedPaymentMethod==='SANDBOX' ? 'is-selected' : '' %> <%= sandboxAvailable ? '' : 'is-unavailable' %>">
               <input
                 type="radio"
@@ -160,19 +185,34 @@
                 </small>
               </span>
             </label>
+            <% } %>
           <% } %>
 
-          <label class="payment-option <%= selectedPaymentMethod==='LIVE' ? 'is-selected' : '' %>">
-            <input
-              type="radio"
-              name="paymentMethod"
-              value="LIVE"
-              <%= selectedPaymentMethod==='LIVE' ? 'checked' : '' %>
-            >
-            <span class="payment-option__copy payment-option__copy--qris">
-              <%- icon('qris', 'icon payment-option-qris', 'QRIS') %>
-            </span>
-          </label>
+          <% if(isDwigitalCheckout){ %>
+            <label class="payment-option <%= selectedPaymentMethod==='GATEWAY' ? 'is-selected' : '' %>">
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="GATEWAY"
+                <%= selectedPaymentMethod==='GATEWAY' ? 'checked' : '' %>
+              >
+              <span class="payment-option__copy payment-option__copy--qris">
+                <%- icon('qris', 'icon payment-option-qris', 'QRIS') %>
+              </span>
+            </label>
+          <% } else { %>
+            <label class="payment-option <%= selectedPaymentMethod==='LIVE' ? 'is-selected' : '' %>">
+              <input
+                type="radio"
+                name="paymentMethod"
+                value="LIVE"
+                <%= selectedPaymentMethod==='LIVE' ? 'checked' : '' %>
+              >
+              <span class="payment-option__copy payment-option__copy--qris">
+                <%- icon('qris', 'icon payment-option-qris', 'QRIS') %>
+              </span>
+            </label>
+          <% } %>
         </div>
 
       </fieldset>
@@ -188,6 +228,12 @@
         data-checkout-confirm
         data-buy-now-product="<%= preview.buyNowProductId||'' %>"
         data-buy-now-variant="<%= preview.buyNowVariantId||'' %>"
+        data-dwigital-checkout="<%= isDwigitalCheckout ? '1' : '0' %>"
+        data-dwigital-type="<%= preview.dwigital?.type||'' %>"
+        data-dwigital-product-id="<%= preview.dwigital?.productId||'' %>"
+        data-dwigital-variant-id="<%= preview.dwigital?.variantId||'' %>"
+        data-dwigital-target="<%= preview.dwigital?.target||'' %>"
+        data-dwigital-target-zone="<%= preview.dwigital?.targetZone||'' %>"
         data-checkout-intent="<%= encodeURIComponent(JSON.stringify({
           items: preview.items.map(item => ({
             cartItemId: item.id || null,
@@ -202,10 +248,17 @@
             countryCode: recipient.countryCode,
             dialCode: recipient.dialCode,
             phone: recipient.phone
+          } : null,
+          dwigital: isDwigitalCheckout ? {
+            type: preview.dwigital.type,
+            productId: preview.dwigital.productId,
+            variantId: preview.dwigital.variantId,
+            target: preview.dwigital.target,
+            targetZone: preview.dwigital.targetZone || null
           } : null
         })) %>"
-        aria-disabled="<%= preview.items.length && recipientComplete ? 'false' : 'true' %>"
-        data-checkout-ready="<%= preview.items.length && recipientComplete ? '1' : '0' %>"
+        aria-disabled="<%= isDwigitalCheckout || (preview.items.length && recipientComplete) ? 'false' : 'true' %>"
+        data-checkout-ready="<%= isDwigitalCheckout || (preview.items.length && recipientComplete) ? '1' : '0' %>"
       >
         <%- icon('check') %>
         <span

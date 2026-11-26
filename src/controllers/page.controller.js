@@ -180,12 +180,7 @@ async function dwigitalProductDetail(req,res,next){
       productId
     );
 
-    const [publicCatalog,walletState]=await Promise.all([
-      displayRepo.listPublicCatalog(),
-      req.user?.id
-        ? wallet.get(req.user.id)
-        : Promise.resolve(null)
-    ]);
+    const publicCatalog=await displayRepo.listPublicCatalog();
 
     const catalogProducts=publicCatalog.flatMap(root=>
       root.subcategories.flatMap(category=>
@@ -246,7 +241,6 @@ async function dwigitalProductDetail(req,res,next){
         relatedProducts,
         bestSellerProducts,
         isAuthenticated:Boolean(req.user?.id),
-        walletBalance:Number(walletState?.balance||0)
       })
     );
   }catch(error){
@@ -418,6 +412,149 @@ async function cartPage(req,res,next){
 }
 async function checkout(req,res,next){
   try{
+    if(String(req.query.dwigital||'')==='1'){
+      const draft=req.session?.dwigitalCheckout;
+      const createdAt=Number(draft?.createdAt);
+
+      if(
+        !draft||
+        String(draft.userId)!==String(req.user.id)||
+        !Number.isFinite(createdAt)||
+        createdAt>Date.now()||
+        Date.now()-createdAt>30*60*1000
+      ){
+        if(req.session?.dwigitalCheckout){
+          delete req.session.dwigitalCheckout;
+        }
+        return res.redirect('/store');
+      }
+
+      const type=String(draft.type||'').trim().toLowerCase();
+      const productId=String(draft.productId||'').trim();
+      const variantId=String(draft.variantId||'').trim();
+
+      if(
+        !['digital','game'].includes(type)||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(productId)||
+        !/^[A-Za-z0-9_-]{1,128}$/.test(variantId)
+      ){
+        delete req.session.dwigitalCheckout;
+        return res.redirect('/store');
+      }
+
+      const detailUrl=
+        '/store/dwigital/'+type+'/'+encodeURIComponent(productId);
+
+      const displayRepo=require('../repositories/dwigital-display.repository');
+      const providerProduct=await displayRepo.findProviderProduct(
+        type,
+        productId,
+        {publicOnly:true}
+      );
+
+      const variant=(providerProduct?.variants||[]).find(
+        item=>String(item.variant_id)===variantId
+      );
+
+      if(
+        !providerProduct||
+        !variant||
+        variant.is_visible!==true||
+        providerProduct.is_visible===false
+      ){
+        delete req.session.dwigitalCheckout;
+        return res.redirect('/store');
+      }
+
+      const fields=Array.isArray(variant.fields)?variant.fields:[];
+      const targetField=fields.find(field=>field?.name==='target');
+      const zoneField=fields.find(field=>field?.name==='target_zone');
+
+      const unsupportedField=fields.some(
+        field=>
+          field?.required===true&&
+          !['target','target_zone'].includes(String(field.name||''))
+      );
+
+      const priceUnit=String(variant.price_unit||'per_order').toLowerCase();
+      const extraField=String(variant.extra_field||'').trim();
+      const price=Number(variant.retail_price||0);
+
+      if(
+        priceUnit!=='per_order'||
+        extraField||
+        unsupportedField||
+        !Number.isSafeInteger(price)||
+        price<=0
+      ){
+        delete req.session.dwigitalCheckout;
+        return res.redirect(detailUrl);
+      }
+
+      const target=String(draft.target||'').trim();
+      const targetZone=String(draft.targetZone||'').trim();
+
+      const zoneRequired=
+        ['true','1','yes'].includes(
+          String(variant.zone_required||'').toLowerCase()
+        )||
+        zoneField?.required===true;
+
+      const zoneVisible=zoneRequired||Boolean(zoneField);
+
+      if(!target||(zoneRequired&&!targetZone)){
+        delete req.session.dwigitalCheckout;
+        return res.redirect(detailUrl);
+      }
+
+      const walletState=await wallet.get(req.user.id);
+      const walletSufficient=
+        Number(walletState?.balance||0)>=price;
+
+      const preview={
+        items:[{
+          id:null,
+          name:providerProduct.display_name,
+          variant_label:variant.display_name||variant.source_name||'Varian',
+          quantity:1,
+          price,
+          lineTotal:price,
+          variant_icon_path:variant.icon_path||null,
+          thumbnail_path:providerProduct.cover_path||null
+        }],
+        total:price,
+        directBuyNow:true,
+        buyNowProductId:null,
+        buyNowVariantId:null,
+        dwigital:{
+          type,
+          productId,
+          variantId,
+          target,
+          targetZone,
+          targetLabel:
+            targetField?.label||variant.target_label||'Target',
+          zoneLabel:
+            zoneField?.label||variant.zone_label||'Zone',
+          zoneVisible,
+          detailUrl
+        }
+      };
+
+      return res.render(
+        'app',
+        base(req,{
+          view:'pages/checkout',
+          preview,
+          wallet:walletState,
+          walletSufficient,
+          selectedPaymentMethod:walletSufficient?'BALANCE':'GATEWAY',
+          isOwner:req.profile?.role==='OWNER',
+          sandboxAvailable:false
+        })
+      );
+    }
+
     const buyNowProductId=
       String(req.query.buy_now||'').trim()||null;
 

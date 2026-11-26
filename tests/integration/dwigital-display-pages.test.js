@@ -90,6 +90,7 @@ test('Dwigital detail login link uses the canonical auth route',()=>{
 test('Dwigital detail page reuses local product detail presentation components',()=>{
   const localView=read('views/pages/product-detail.ejs');
   const dwigitalView=read('views/pages/dwigital-product-detail.ejs');
+  const checkoutView=read('views/pages/checkout.ejs');
 
   const sharedClasses=[
     'detail-media',
@@ -193,8 +194,11 @@ test('Dwigital detail page reuses local product detail presentation components',
   assert.match(dwigitalView,/data-dwigital-purchase-form/);
   assert.match(dwigitalView,/data-dwigital-target/);
   assert.match(dwigitalView,/data-dwigital-zone/);
-  assert.match(dwigitalView,/data-dwigital-balance/);
-  assert.match(dwigitalView,/data-dwigital-gateway/);
+  assert.doesNotMatch(
+    dwigitalView,
+    /data-dwigital-balance|data-dwigital-gateway|dwigitalPaymentMethod/
+  );
+  assert.match(checkoutView,/name="paymentMethod"/);
   assert.match(dwigitalView,/data-dwigital-submit/);
 });
 
@@ -274,18 +278,23 @@ test('Dwigital header keeps selected price aligned with variant title',()=>{
   );
 });
 
-test('Dwigital detail form supports supplier-priced variants and buyer payment',()=>{
+test('Dwigital detail form hands off variants to shared checkout',()=>{
   const detailView=read('views/pages/dwigital-product-detail.ejs');
   const controller=read('src/controllers/page.controller.js');
+  const checkoutView=read('views/pages/checkout.ejs');
+  const browser=read('public/js/pages.js');
 
   assert.match(detailView,/data-dwigital-purchase-form/);
   assert.match(detailView,/data-dwigital-variant/);
   assert.match(detailView,/data-dwigital-submit/);
   assert.match(detailView,/targetZone/);
-  assert.match(detailView,/paymentMethod/);
+  assert.match(detailView,/\/api\/dwigital\/checkout/);
+  assert.doesNotMatch(detailView,/\/api\/dwigital\/orders/);
+  assert.match(checkoutView,/name="paymentMethod"/);
+  assert.match(browser,/\/api\/dwigital\/orders/);
   assert.match(detailView,/JYYRApi\.request/);
   assert.match(detailView,/extra_field|canPurchase/);
-  assert.match(controller,/walletBalance/);
+  assert.match(controller,/wallet\.get\(req\.user\.id\)/);
   assert.match(controller,/isAuthenticated/);
 });
 
@@ -345,100 +354,119 @@ test('Dwigital purchase sheet adds a live selected variant card above buy now',(
     /\.product-purchase-sheet-actions > \[data-dwigital-submit\]\{[^}]*grid-column:1\/-1/s
   );
 
-  assert.match(detailView,/const firstAvailable=options\.find/);
-  assert.match(detailView,/selectVariant\(firstAvailable\)/);
+  const purchaseSheet=detailView.match(
+    /<details\b(?=[^>]*\bdata-product-purchase-sheet\b)[^>]*>/
+  );
+
+  assert.ok(purchaseSheet,'Dwigital purchase sheet must exist');
+
+  assert.match(
+    purchaseSheet[0],
+    /\shidden(?:\s|>)/,
+    'Action sheet must initially be hidden'
+  );
+
+  assert.doesNotMatch(
+    purchaseSheet[0],
+    /\sopen(?:\s|>)/,
+    'Action sheet must not initially be open'
+  );
+
+  assert.match(detailView,/aria-expanded="false"/);
+  assert.match(detailView,/aria-label="Buka panel aksi pembelian"/);
+
+  assert.match(
+    detailView,
+    /purchaseSheet\.hidden=false;\s*purchaseSheet\.open=true;/
+  );
+
+  const variantClickIndex=detailView.indexOf(
+    "options.forEach(option=>{\n      option.addEventListener('click',()=>selectVariant(option));\n    });"
+  );
+
+  const authenticationGuardIndex=detailView.indexOf(
+    "if(!authenticated||!submit||!submitLabel)return;"
+  );
+
+  assert.ok(
+    variantClickIndex>=0&&authenticationGuardIndex>variantClickIndex,
+    'Guests must be able to reveal the action sheet after variant selection'
+  );
+
+  assert.equal(
+    (detailView.match(/item\.classList\.toggle\('active',active\)/g)||[]).length,
+    1,
+    'Only one canonical variant active-state loop must exist'
+  );
+
+  assert.doesNotMatch(detailView,/const firstAvailable=options\.find/);
+  assert.doesNotMatch(detailView,/selectVariant\(firstAvailable\)/);
 });
 
 
-test('Dwigital payment choices move into purchase sheet and remain form-associated',()=>{
+test('Dwigital checkout uses the shared local checkout before creating an order',()=>{
   const detailView=read('views/pages/dwigital-product-detail.ejs');
-  const pagesCss=read('public/css/pages.css');
+  const checkoutView=read('views/pages/checkout.ejs');
+  const browser=read('public/js/pages.js');
+  const routes=read('src/routes/index.js');
+  const api=read('src/controllers/api.controller.js');
+  const controller=read('src/controllers/page.controller.js');
 
-  const form=detailView.match(
-    /<form\b(?=[^>]*\bdata-dwigital-purchase-form\b)[^>]*>([\s\S]*?)<\/form>/
+  assert.ok(
+    detailView.includes("'/api/dwigital/checkout'"),
+    'Dwigital detail must stage checkout before creating an order'
   );
 
-  assert.ok(form,'Dwigital purchase form must exist');
-  assert.doesNotMatch(
-    form[1],
-    /<fieldset class="payment-group">/,
-    'Payment group must be moved outside the Dwigital form'
-  );
+  assert.doesNotMatch(detailView,/\/api\/dwigital\/orders/);
 
   const sheetStart=detailView.indexOf(
     '<details\n    class="product-purchase-sheet"'
   );
   const sheetEnd=detailView.indexOf('</details>',sheetStart);
-  const actionsStart=detailView.indexOf(
-    'id="dwigital-purchase-sheet-actions"',
-    sheetStart
-  );
-  const paymentStart=detailView.indexOf(
-    '<fieldset class="payment-group">',
-    sheetStart
-  );
-  const cardStart=detailView.indexOf(
-    'data-dwigital-selected-variant-card',
-    sheetStart
-  );
-  const submitStart=detailView.indexOf('data-dwigital-submit',sheetStart);
+  assert.ok(sheetStart>=0&&sheetEnd>sheetStart);
 
-  assert.ok(
-    sheetStart>=0&&
-    actionsStart>sheetStart&&
-    paymentStart>actionsStart&&
-    cardStart>paymentStart&&
-    submitStart>cardStart&&
-    sheetEnd>submitStart,
-    'Payment group must appear before selected variant card and buy button'
-  );
+  const sheet=detailView.slice(sheetStart,sheetEnd);
 
-  const paymentEnd=detailView.indexOf('</fieldset>',paymentStart);
-  assert.ok(paymentEnd>paymentStart);
-
-  const paymentMarkup=detailView.slice(
-    paymentStart,
-    paymentEnd+'</fieldset>'.length+paymentStart
-  );
-  const radioInputs=paymentMarkup.match(/<input\b[^>]*>/g)||[];
-
-  assert.equal(radioInputs.length,2);
-
-  for(const input of radioInputs){
-    assert.match(input,/form="dwigital-purchase-form"/);
-    assert.match(input,/name="dwigitalPaymentMethod"/);
-  }
-
-  assert.match(
-    detailView,
-    /const walletChoice=Array\.from\(form\.elements\)\.find/
-  );
-  assert.match(
-    detailView,
-    /control=>control\.matches\('\[data-dwigital-balance\]'\)/
-  );
-  assert.match(
-    detailView,
-    /const gatewayChoice=Array\.from\(form\.elements\)\.find/
-  );
-  assert.match(
-    detailView,
-    /control=>control\.matches\('\[data-dwigital-gateway\]'\)/
-  );
-  assert.match(
-    detailView,
-    /control\.name==='dwigitalPaymentMethod'&&control\.checked/
-  );
   assert.doesNotMatch(
-    detailView,
-    /form\.querySelector\('input\[name="dwigitalPaymentMethod"\]:checked'\)/
+    sheet,
+    /payment-group|dwigitalPaymentMethod/,
+    'Payment choices must live on the shared checkout page'
   );
 
+  assert.match(routes,/const dwigitalCheckoutSchema=dwigitalOrderSchema\.omit/);
+  assert.ok(routes.includes("apiRouter.post('/dwigital/checkout'"));
   assert.match(
-    pagesCss,
-    /\.product-purchase-sheet-actions > \.payment-group\{[^}]*grid-column:1\/-1/s
+    routes,
+    /apiRouter\.post\('\/dwigital\/checkout',requireAuth,sensitiveRateLimit\(\),validate\(dwigitalCheckoutSchema\)/
   );
+
+  assert.match(api,/prepareCheckout:async\(req,res\)=>/);
+  assert.match(api,/req\.session\.dwigitalCheckout/);
+  assert.match(api,/delete req\.session\.dwigitalCheckout/);
+  assert.match(
+    api,
+    /assertOrderPaymentMode\(\s*created\.order,\s*method\s*===\s*'BALANCE'\s*\?\s*'BALANCE'\s*:\s*'LIVE'\s*\)/
+  );
+
+  assert.match(controller,/req\.session\?\.dwigitalCheckout/);
+  assert.match(controller,/findProviderProduct\(/);
+  assert.match(controller,/view:'pages\/checkout'/);
+
+  assert.match(checkoutView,/preview\.dwigital\.target/);
+  assert.match(checkoutView,/data-dwigital-checkout=/);
+  assert.match(checkoutView,/data-dwigital-target=/);
+  assert.match(checkoutView,/data-checkout-ready="[^"]*"/);
+  assert.match(checkoutView,/name="paymentMethod"/);
+
+  assert.match(
+    browser,
+    /const isDwigitalCheckout=checkout\.dataset\.dwigitalCheckout==='1'/
+  );
+  assert.match(browser,/api\.request\(\s*'\/api\/dwigital\/orders'/);
+  assert.match(browser,/checkout\.dataset\.dwigitalProductId/);
+  assert.match(browser,/checkout\.dataset\.dwigitalTarget/);
 });
+
 
 test('Dwigital permanent rejection state is migration-backed and refundable',()=>{
   const repository=read('src/repositories/dwigital-orders.repository.js');

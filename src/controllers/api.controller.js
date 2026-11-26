@@ -326,6 +326,25 @@ const orderController={
  }
 };
 const dwigitalOrderController={
+ prepareCheckout:async(req,res)=>{
+   req.session.dwigitalCheckout={
+     userId:req.user.id,
+     type:req.body.type,
+     productId:req.body.productId,
+     variantId:req.body.variantId,
+     target:req.body.target,
+     targetZone:req.body.targetZone||'',
+     createdAt:Date.now()
+   };
+
+   await new Promise((resolve,reject)=>{
+     req.session.save(error=>
+       error?reject(error):resolve()
+     );
+   });
+
+   return ok(res,{redirectUrl:'/checkout?dwigital=1'});
+ },
  create:async(req,res)=>{
    const method=String(req.body.paymentMethod||'').toUpperCase();
    const env=loadEnv();
@@ -356,6 +375,11 @@ const dwigitalOrderController={
      idempotencyKey:req.body.idempotencyKey||crypto.randomUUID(),
      paymentMethod:method
    });
+
+   assertOrderPaymentMode(
+     created.order,
+     method==='BALANCE'?'BALANCE':'LIVE'
+   );
 
    let paymentResult=null;
    let fulfillment=null;
@@ -390,6 +414,20 @@ const dwigitalOrderController={
    }else{
      paymentResult=await require('../repositories/payments.repository')
        .findLatestForOrderForUser(created.order.id,req.user.id);
+   }
+
+   const draft=req.session?.dwigitalCheckout;
+
+   if(
+     draft&&
+     String(draft.userId)===String(req.user.id)&&
+     draft.type===req.body.type&&
+     draft.productId===req.body.productId&&
+     draft.variantId===req.body.variantId&&
+     draft.target===req.body.target&&
+     String(draft.targetZone||'')===String(req.body.targetZone||'')
+   ){
+     delete req.session.dwigitalCheckout;
    }
 
    return ok(

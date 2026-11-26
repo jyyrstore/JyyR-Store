@@ -94,7 +94,6 @@
       data-type="<%= providerProduct.provider_type %>"
       data-product-id="<%= providerProduct.provider_product_id %>"
       data-authenticated="<%= isAuthenticated ? '1' : '0' %>"
-      data-wallet-balance="<%= Number(walletBalance||0) %>"
     >
       <div class="dwigital-variant-heading">
         <h2 class="detail-variant-title" id="dwigital-variant-title">
@@ -246,14 +245,14 @@
   <details
     class="product-purchase-sheet"
     data-product-purchase-sheet
-    open
+    hidden
   >
     <summary
       class="product-purchase-sheet-handle"
       data-product-purchase-sheet-handle
-      aria-label="Tutup panel aksi pembelian"
+      aria-label="Buka panel aksi pembelian"
       aria-controls="dwigital-purchase-sheet-actions"
-      aria-expanded="true"
+      aria-expanded="false"
     >
       <span
         class="product-purchase-sheet-handle-bar"
@@ -266,43 +265,7 @@
       id="dwigital-purchase-sheet-actions"
       aria-label="Aksi pembelian Dwigital"
     >
-      <fieldset class="payment-group">
-        <legend>Metode pembayaran</legend>
-        <div class="payment-options">
-          <label class="payment-option">
-            <input
-              type="radio"
-              form="dwigital-purchase-form"
-              name="dwigitalPaymentMethod"
-              value="BALANCE"
-              data-dwigital-balance
-              <%= isAuthenticated && Number(walletBalance||0)>0 ? '' : 'disabled' %>
-            >
-            <span class="payment-option__copy payment-option__copy--wallet">
-              <strong>Saldo Wallet JYYR</strong>
-              <small data-dwigital-wallet-balance>
-                Saldo tersedia <%= formatIDR(walletBalance||0) %>
-              </small>
-            </span>
-          </label>
 
-          <label class="payment-option is-selected">
-            <input
-              type="radio"
-              form="dwigital-purchase-form"
-              name="dwigitalPaymentMethod"
-              value="GATEWAY"
-              data-dwigital-gateway
-              checked
-            >
-            <span class="payment-option__copy payment-option__copy--qris">
-              <%- icon('qris', 'icon payment-option-qris', 'Gateway / QRIS') %>
-              <strong>Gateway / QRIS</strong>
-              <small>Pembayaran melalui penyedia pembayaran</small>
-            </span>
-          </label>
-        </div>
-      </fieldset>
       <% if(isAuthenticated){ %>
         <div
           class="dwigital-selected-variant-card"
@@ -333,7 +296,7 @@
           disabled
         >
           <%- icon('shopping-bag') %>
-          <span data-dwigital-submit-label>Beli Sekarang</span>
+          <span data-dwigital-submit-label>Lanjut ke Checkout</span>
         </button>
       <% } else { %>
         <a class="button button-primary button-block" href="/auth/login">
@@ -356,16 +319,11 @@
     const zoneWrapper=form.querySelector('[data-dwigital-zone-wrapper]');
     const targetLabel=form.querySelector('[data-dwigital-target-label]');
     const zoneLabel=form.querySelector('[data-dwigital-zone-label]');
-    const walletChoice=Array.from(form.elements).find(
-      control=>control.matches('[data-dwigital-balance]')
-    )||null;
-    const gatewayChoice=Array.from(form.elements).find(
-      control=>control.matches('[data-dwigital-gateway]')
-    )||null;
     const total=form.querySelector('[data-dwigital-total]');
     const errorBox=form.querySelector('[data-dwigital-error]');
     const submit=Array.from(form.elements).find(control=>control.matches('[data-dwigital-submit]'))||null;
     const submitLabel=submit?.querySelector('[data-dwigital-submit-label]')||null;
+    const purchaseSheet=document.querySelector('[data-product-purchase-sheet]');
     const selectedVariantCard=document.querySelector(
       '[data-dwigital-selected-variant-card]'
     );
@@ -379,18 +337,10 @@
       '[data-dwigital-selected-variant-price]'
     );
     const authenticated=form.dataset.authenticated==='1';
-    const walletBalance=Number(form.dataset.walletBalance||0);
-
-    if(!authenticated||!submit||!submitLabel)return;
 
     let selected=null;
     let selectedPrice=0;
     let submitting=false;
-
-    const idempotencyKey=
-      window.crypto&&typeof window.crypto.randomUUID==='function'
-        ? window.crypto.randomUUID()
-        : `dwigital-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
     const money=value=>new Intl.NumberFormat('id-ID',{
       style:'currency',
@@ -413,13 +363,18 @@
 
       if(!submitting){
         submitLabel.textContent=selected
-          ? `Beli Sekarang · ${money(selectedPrice)}`
-          : 'Beli Sekarang';
+          ? `Lanjut ke Checkout · ${money(selectedPrice)}`
+          : 'Lanjut ke Checkout';
       }
     };
 
     const selectVariant=option=>{
       if(!option||option.dataset.purchasable!=='1')return;
+
+      if(purchaseSheet){
+        purchaseSheet.hidden=false;
+        purchaseSheet.open=true;
+      }
 
       selected=option;
       selectedPrice=Number(option.dataset.price||0);
@@ -459,6 +414,12 @@
         item.setAttribute('aria-pressed',active?'true':'false');
       }
 
+      if(!authenticated){
+        total.textContent=money(selectedPrice);
+        errorBox.hidden=true;
+        return;
+      }
+
       target.disabled=false;
       target.value='';
       target.required=true;
@@ -472,18 +433,6 @@
       zone.value='';
       zoneLabel.textContent=option.dataset.zoneLabel||'Zone';
 
-      const balanceAvailable=walletBalance>=selectedPrice;
-      walletChoice.disabled=!balanceAvailable;
-
-      if(walletChoice.disabled&&walletChoice.checked){
-        gatewayChoice.checked=true;
-      }else if(
-        !gatewayChoice.checked&&
-        !walletChoice.checked
-      ){
-        gatewayChoice.checked=true;
-      }
-
       total.textContent=money(selectedPrice);
       errorBox.hidden=true;
       syncSubmit();
@@ -493,25 +442,15 @@
       option.addEventListener('click',()=>selectVariant(option));
     });
 
-    target.addEventListener('input',syncSubmit);
-    zone.addEventListener('input',syncSubmit);
-    walletChoice.addEventListener('change',syncSubmit);
-    gatewayChoice.addEventListener('change',syncSubmit);
-
-    const firstAvailable=options.find(
-      option=>option.dataset.purchasable==='1'
-    );
-
-    if(firstAvailable){
-      selectVariant(firstAvailable);
-
-      if(walletBalance>=selectedPrice&&!walletChoice.disabled){
-        walletChoice.checked=true;
-      }
-      syncSubmit();
-    }else{
+    if(!options.some(option=>option.dataset.purchasable==='1')){
       showError('Belum ada varian yang mendukung pembelian melalui halaman ini.');
     }
+
+    if(!authenticated||!submit||!submitLabel)return;
+
+
+    target.addEventListener('input',syncSubmit);
+    zone.addEventListener('input',syncSubmit);
 
     form.addEventListener('submit',async event=>{
       event.preventDefault();
@@ -521,23 +460,14 @@
       if(!target.reportValidity())return;
       if(!zone.disabled&&!zone.reportValidity())return;
 
-      const paymentMethod=Array.from(form.elements).find(
-        control=>control.name==='dwigitalPaymentMethod'&&control.checked
-      )?.value||'GATEWAY';
-
-      if(paymentMethod==='BALANCE'&&walletBalance<selectedPrice){
-        showError('Saldo Wallet JYYR tidak mencukupi.');
-        return;
-      }
-
       submitting=true;
       submit.disabled=true;
-      submitLabel.textContent='Memproses pesanan…';
+      submitLabel.textContent='Membuka checkout…';
       errorBox.hidden=true;
 
       try{
         const result=await window.JYYRApi.request(
-          '/api/dwigital/orders',
+          '/api/dwigital/checkout',
           {
             method:'POST',
             body:{
@@ -545,33 +475,26 @@
               productId:form.dataset.productId,
               variantId:selected.dataset.variantId,
               target:target.value.trim(),
-              targetZone:zone.disabled?undefined:(zone.value.trim()||undefined),
-              paymentMethod,
-              idempotencyKey,
-              returnUrl:window.location.origin+'/orders'
+              targetZone:zone.disabled
+                ? undefined
+                : (zone.value.trim()||undefined)
             }
           }
         );
 
-        if(result?.payment?.paymentUrl){
-          window.location.assign(result.payment.paymentUrl);
+        if(result?.redirectUrl){
+          window.location.assign(result.redirectUrl);
           return;
         }
 
-        if(result?.order?.id){
-          window.location.assign(
-            '/orders/'+encodeURIComponent(result.order.id)
-          );
-          return;
-        }
-
-        throw new Error('Respons pesanan tidak lengkap. Periksa halaman Pesanan.');
+        throw new Error('Halaman checkout tidak tersedia.');
       }catch(error){
-        showError(error?.message||'Pembelian gagal diproses.');
+        showError(error?.message||'Checkout gagal dibuka.');
         submitting=false;
         syncSubmit();
       }
     });
+
   })();
   </script>
 

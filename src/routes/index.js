@@ -478,6 +478,13 @@ const dwigitalOrderSchema=z.object({
   returnUrl:z.string().url().optional()
 });
 
+const dwigitalCheckoutSchema=dwigitalOrderSchema.omit({
+  paymentMethod:true,
+  idempotencyKey:true,
+  returnUrl:true
+});
+
+apiRouter.post('/dwigital/checkout',requireAuth,sensitiveRateLimit(),validate(dwigitalCheckoutSchema),asyncHandler(api.dwigitalOrderController.prepareCheckout));
 apiRouter.post('/dwigital/orders',requireAuth,sensitiveRateLimit(),validate(dwigitalOrderSchema),asyncHandler(api.dwigitalOrderController.create));
 apiRouter.get('/orders',requireAuth,asyncHandler(api.orderController.list));
 apiRouter.get('/orders/:id',requireAuth,asyncHandler(api.orderController.detail));

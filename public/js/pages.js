@@ -3259,9 +3259,13 @@
 
     const checkout=e.target.closest('[data-checkout-confirm]');
     if(checkout){
+      const isDwigitalCheckout=checkout.dataset.dwigitalCheckout==='1';
+
       if(checkout.dataset.checkoutReady!=='1'){
         toast.error(
-          'Kontak penerima belum lengkap. Lengkapi email dan WhatsApp penerima terlebih dahulu.'
+          isDwigitalCheckout
+            ? 'Detail checkout tidak lengkap. Periksa kembali varian dan target.'
+            : 'Kontak penerima belum lengkap. Lengkapi email dan WhatsApp penerima terlebih dahulu.'
         );
         return;
       }
@@ -3269,7 +3273,7 @@
       const method=
         document.querySelector(
           'input[name="paymentMethod"]:checked'
-        )?.value||'BALANCE';
+        )?.value||(isDwigitalCheckout?'GATEWAY':'BALANCE');
 
       const checkoutAction=beginIdempotentAction(
         'checkout',
@@ -3285,23 +3289,40 @@
       checkout.disabled=true;
 
       try{
-        const r=await api.request(
-          '/api/orders',
-          {
-            method:'POST',
-            body:{
-              idempotencyKey:checkoutAction.key,
-              paymentMethod:method,
-              returnUrl:location.origin+'/orders',
-              ...(checkout.dataset.buyNowProduct
-                ? {buyNowProductId:checkout.dataset.buyNowProduct}
-                : {}),
-              ...(checkout.dataset.buyNowVariant
-                ? {buyNowVariantId:checkout.dataset.buyNowVariant}
-                : {})
-            }
-          }
-        );
+        const r=isDwigitalCheckout
+          ? await api.request(
+              '/api/dwigital/orders',
+              {
+                method:'POST',
+                body:{
+                  type:checkout.dataset.dwigitalType,
+                  productId:checkout.dataset.dwigitalProductId,
+                  variantId:checkout.dataset.dwigitalVariantId,
+                  target:checkout.dataset.dwigitalTarget,
+                  targetZone:checkout.dataset.dwigitalTargetZone||undefined,
+                  idempotencyKey:checkoutAction.key,
+                  paymentMethod:method,
+                  returnUrl:location.origin+'/orders'
+                }
+              }
+            )
+          : await api.request(
+              '/api/orders',
+              {
+                method:'POST',
+                body:{
+                  idempotencyKey:checkoutAction.key,
+                  paymentMethod:method,
+                  returnUrl:location.origin+'/orders',
+                  ...(checkout.dataset.buyNowProduct
+                    ? {buyNowProductId:checkout.dataset.buyNowProduct}
+                    : {}),
+                  ...(checkout.dataset.buyNowVariant
+                    ? {buyNowVariantId:checkout.dataset.buyNowVariant}
+                    : {})
+                }
+              }
+            );
 
         const createdPayment=r.payment?.payment;
         let destination;
