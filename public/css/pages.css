@@ -1296,6 +1296,13 @@
   margin:0;
   font-size:clamp(13px,4.5vw,16px);
 }
+.dwigital-purchase-form .stack-form{
+  margin-top:6px;
+}
+
+.dwigital-purchase-form .stack-form > .field > span{
+  padding-left:6px;
+}
 
 .dwigital-variant-total{
   flex:0 0 auto;
@@ -3954,6 +3961,10 @@ button[aria-busy="true"]{
   overflow:hidden;
 }
 
+:root[data-theme="light"] .page-shell.messages-page:not(.owner-messages-page):not(.owner-tickets-page) :is(.messages-panel,.messages-composer){
+  background:var(--surface-card-bg);
+}
+
 .messages-panel-top{
   display:flex;
   align-items:center;
@@ -4966,6 +4977,10 @@ button[aria-busy="true"]{
   padding:9px 10px;
   border-top:1px solid var(--border);
   background:rgba(0,0,0,.08);
+}
+
+:root[data-theme="light"] .page-shell.message-detail-page:not(.owner-message-detail-page):not(.owner-ticket-detail-page) :is(.message-detail-card,.message-detail-header,.message-detail-body,.message-detail-composer){
+  background:var(--surface-card-bg);
 }
 
 .message-detail-form{

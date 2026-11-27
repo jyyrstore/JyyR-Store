@@ -1697,6 +1697,63 @@ test('Owner ticket status trigger centers its vertical dots',()=>{
 
 
 
+test('Customer message and ticket detail panels are white in light theme only',()=>{
+  const css=fs.readFileSync(
+    path.join(root,'public/css/pages.css'),
+    'utf8'
+  );
+  const messageTemplate=fs.readFileSync(
+    path.join(root,'views/pages/message-detail.ejs'),
+    'utf8'
+  );
+  const ticketTemplate=fs.readFileSync(
+    path.join(root,'views/pages/ticket-detail.ejs'),
+    'utf8'
+  );
+
+  assert.match(messageTemplate,/class="[^"]*\bmessage-detail-page\b/);
+  assert.match(ticketTemplate,/class="[^"]*\bmessage-detail-page\b/);
+
+  const detailRule=css.match(
+    /:root\[data-theme="light"\]\s+\.page-shell\.message-detail-page:not\(\.owner-message-detail-page\):not\(\.owner-ticket-detail-page\)\s+:is\(\.message-detail-card,\s*\.message-detail-header,\s*\.message-detail-body,\s*\.message-detail-composer\)\s*\{([^}]*)\}/
+  );
+
+  assert.ok(
+    detailRule,
+    'Panel detail customer harus memiliki aturan khusus tema light.'
+  );
+  assert.match(
+    detailRule[1],
+    /background\s*:\s*var\(--surface-card-bg\)\s*;/,
+    'Panel detail harus menggunakan permukaan kartu putih.'
+  );
+});test('Messages and tickets use white outer cards in light theme only',()=>{
+  const css=fs.readFileSync(
+    path.join(root,'public/css/pages.css'),
+    'utf8'
+  );
+
+  const panelRule=css.match(
+    /:root\[data-theme="light"\]\s+\.page-shell\.messages-page:not\(\.owner-messages-page\):not\(\.owner-tickets-page\)\s+:is\(\.messages-panel,\s*\.messages-composer\)\s*\{([^}]*)\}/
+  );
+
+  assert.ok(
+    panelRule,
+    'CSS panel putih untuk halaman Pesan dan Tiket pada light theme harus tersedia.'
+  );
+  assert.match(
+    panelRule[1],
+    /background\s*:\s*var\(--surface-card-bg\)\s*;/,
+    'Panel utama dan composer harus menggunakan permukaan kartu putih.'
+  );
+
+  assert.doesNotMatch(
+    css,
+    /:where\(:root\[data-theme="light"\][\s\S]{0,180}?\.message-chat-row\s*\{/,
+    'Warna putih tidak boleh diterapkan pada baris percakapan.'
+  );
+});
+
 test('Messages filter text is centered inside its chip',()=>{
   const css=fs.readFileSync(
     path.join(root,'public/css/pages.css'),

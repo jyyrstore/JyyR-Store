@@ -5,13 +5,6 @@
       <h1 class="page-title-with-icon"><%- icon('shop-twotone','icon page-title-icon') %><span>Katalog produk</span></h1>
       <p><%= total %> produk tersedia. Gunakan filter untuk mempersempit pilihan.</p>
     </div>
-    <% if (currentUser) { %>
-      <a class="button button-secondary cart-button" href="/cart" data-cart-link>
-        <%- icon('cart') %>
-        <span>Keranjang</span>
-        <span class="cart-count" data-cart-badge hidden></span>
-      </a>
-    <% } %>
   </div>
 
   <%

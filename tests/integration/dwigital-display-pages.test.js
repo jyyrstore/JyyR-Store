@@ -483,6 +483,25 @@ test('Dwigital permanent rejection state is migration-backed and refundable',()=
 
 test('Dwigital product title and information remain grouped without a card below variants',()=>{
   const detailView=read('views/pages/dwigital-product-detail.ejs');
+  const pageStyles=read('public/css/pages.css');
+
+  assert.equal(
+    detailView.includes('Temukan pilihan digital lainnya di'),
+    false,
+    'CTA katalog harus dihapus'
+  );
+
+  assert.match(
+    pageStyles,
+    /\.dwigital-purchase-form \.stack-form > \.field > span\{[^}]*padding-left:6px;/s,
+    'Label Target dan Zone harus bergeser 6px ke kanan'
+  );
+
+  assert.match(
+    pageStyles,
+    /\.dwigital-purchase-form \.stack-form\{[^}]*margin-top:6px;/s,
+    'Seluruh kelompok input Target dan Zone harus turun 6px'
+  );
 
   const form=detailView.match(
     /<form\b(?=[^>]*\bdata-dwigital-purchase-form\b)[^>]*>[\s\S]*?<\/form>/

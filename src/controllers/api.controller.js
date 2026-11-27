@@ -1506,6 +1506,7 @@ async function ownerProviderUploadInit(req,res){
     path,
     token:signed.token,
     signedUrl:signed.signedUrl,
+
     expiresIn:7200,
     contentType,
     mimeType:descriptor.mime,

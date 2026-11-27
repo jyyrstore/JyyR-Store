@@ -1057,7 +1057,7 @@
     syncSelection();
   }
 
-  async function ownerAction(url,body={},method='POST',ok='Selesai'){const r=await api.request(url,{method,body});toast.success(ok);return r;}
+  async function ownerAction(url,body={},method='POST',ok='Selesai'){const r=await api.request(url,{method,body});if(ok)toast.success(ok);return r;}
   let tusLoaderPromise=null;
 
   function uploadSignedFile(file,signedUrl,{progressEl=null,statusEl=null}={}){
@@ -1200,7 +1200,7 @@
     }
 
     if(statusEl){
-      statusEl.textContent='Menyiapkan upload langsung ke Storage…';
+      statusEl.textContent='Menyiapkan upload ke Storage…';
     }
 
     if(contentType==='THUMBNAIL'||contentType==='VARIANT_ICON'){
@@ -4327,13 +4327,17 @@ ${productPricingModesMarkup('FIXED')}
         variants
       };
 
+      let configurationSaved=false;
+
       try{
         await ownerAction(
           endpoint,
           payload,
           'PUT',
-          'Konfigurasi produk provider disimpan.'
+          null
         );
+
+        configurationSaved=true;
 
         const coverInput=providerForm.querySelector('[data-provider-cover-file]');
         const coverFile=coverInput?.files?.[0];
@@ -4362,9 +4366,14 @@ ${productPricingModesMarkup('FIXED')}
           });
         }
 
+        toast.success('Perubahan produk provider berhasil disimpan.');
         location.reload();
       }catch(err){
-        toast.error(err.message);
+        toast.error(
+          configurationSaved
+            ?`Konfigurasi produk tersimpan, tetapi upload media gagal: ${err.message}`
+            :err.message
+        );
       }finally{
         delete providerForm.dataset.submitting;
         if(button)button.disabled=false;
