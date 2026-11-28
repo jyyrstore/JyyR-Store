@@ -398,6 +398,12 @@ apiRouter.post('/products/:id/review',
   asyncHandler(api.productController.review)
 );
 
+apiRouter.post('/provider-products/:type/:productId/review',
+  requireAuth,
+  validate(productReviewSchema),
+  asyncHandler(api.productController.dwigitalReview)
+);
+
 apiRouter.get('/categories',asyncHandler(api.productController.categories));
 apiRouter.post('/cart',requireAuth,validate(z.object({productId:z.string().uuid(),variantId:z.string().uuid().optional(),quantity:z.coerce.number().int().min(1).max(100)})),asyncHandler(api.cartController.add));
 apiRouter.get('/cart',requireAuth,asyncHandler(api.cartController.get));
@@ -543,7 +549,8 @@ const providerVariantConfigSchema=z.object({
   displayName:z.string().trim().max(160).nullable().optional(),
   retailPrice:providerRetailPriceSchema,
   sortOrder:z.coerce.number().int().min(0).max(100000),
-  isVisible:zBool
+  isVisible:zBool,
+  iconSourceVariantId:z.string().trim().max(128).nullable().optional()
 });
 ownerApi.put(
   '/provider-products/categories/:categoryKey',

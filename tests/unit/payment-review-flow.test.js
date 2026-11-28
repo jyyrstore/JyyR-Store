@@ -155,6 +155,42 @@ test('post-payment rating prompt skips products already reviewed',()=>{
   );
 });
 
+test('Dwigital payment success opens the shared review prompt for an eligible unreviewed order',()=>{
+  const pages=read('public/js/pages.js');
+  const api=read('src/controllers/api.controller.js');
+  const page=read('src/controllers/api.controller.js');
+  const view=read('views/pages/order-detail.ejs');
+
+  assert.match(pages,/if\(order\?\.dwigital\)/);
+  assert.match(pages,/dwigital\.has_review/);
+  assert.match(pages,/\/api\/provider-products\//);
+  assert.match(pages,/data-review-endpoint=/);
+  assert.match(pages,/reviewEndpoint\|\|\(/);
+  assert.match(api,/productReviews\.findDwigitalForUser/);
+  assert.match(api,/has_review:Boolean\(dwigitalReview\)/);
+  assert.match(api,/review_image_url:reviewImagePath/);
+  const dwigitalCreate=page.slice(
+    page.indexOf('const dwigitalOrderController='),
+    page.indexOf('const paymentController=',page.indexOf('const dwigitalOrderController='))
+  );
+  assert.match(dwigitalCreate,/url\.searchParams\.set\('review','1'\)/);
+  assert.match(view,/data-payment-review-order-detail="<%= req\.query\.review \? order\.id : '' %>"/);
+});
+
+test('Dwigital post-payment prompt waits for paid status and skips refunded orders',()=>{
+  const pages=read('public/js/pages.js');
+  const repository=read('src/repositories/product-reviews.repository.js');
+  const promptStart=pages.indexOf('async function getPaidOrderForReview(');
+  const promptEnd=pages.indexOf('function openPaymentReviewPrompt(',promptStart);
+  const prompt=pages.slice(promptStart,promptEnd);
+
+  assert.match(prompt,/order\?\.dwigital/);
+  assert.match(prompt,/successfulStatuses\.has\(status\)/);
+  assert.match(prompt,/supplier_refunded/);
+  assert.match(repository,/o\.status IN \('PAID','PROCESSING','COMPLETED'\)/);
+  assert.match(repository,/digital\.supplier_refunded=false/);
+});
+
 test('review popup uses variant name or fixed product name',()=>{
   const pages=read('public/js/pages.js');
 

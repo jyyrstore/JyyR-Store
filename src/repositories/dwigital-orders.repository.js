@@ -228,9 +228,13 @@ async function findForOrder(orderId,userId){
        orders.status AS order_status,
        orders.paid_at,
        orders.created_at AS order_created_at,
-       dwigital_orders.*
+       dwigital_orders.*,
+       display.cover_path AS review_image_path
      FROM orders
      JOIN dwigital_orders ON dwigital_orders.order_id=orders.id
+     LEFT JOIN dwigital_display_products display
+       ON display.provider_type=dwigital_orders.provider_type
+      AND display.provider_product_id=dwigital_orders.provider_product_id
      WHERE orders.id=$1 AND orders.user_id=$2
      LIMIT 1`,
     [orderId,userId]

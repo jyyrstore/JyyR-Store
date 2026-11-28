@@ -1,6 +1,10 @@
 <% const contentTypeLabels = { FILE: 'File', IMAGE: 'Gambar', VIDEO: 'Video', AUDIO: 'Audio', TEXT: 'Teks', LINK: 'Tautan' }; const accessTypeLabels = { PURCHASED: 'Setelah pembelian', PUBLIC: 'Publik', PREVIEW: 'Pratinjau' }; %> <% const paymentDetailsMarkup = payment ? include('../partials/payment-details', { payment, heading: 'Rincian Pembayaran', orderNumber: order.order_number }) : ''; %>
 <% if(dwigitalOrder){ %>
-<section class="page-shell" data-dwigital-order-detail="<%= order.id %>">
+<section
+  class="page-shell"
+  data-dwigital-order-detail="<%= order.id %>"
+  data-payment-review-order-detail="<%= req.query.review ? order.id : '' %>"
+>
   <div class="page-header">
     <div>
       <h1>Detail Pesanan Digital</h1>

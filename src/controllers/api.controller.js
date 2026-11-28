@@ -110,6 +110,15 @@ const productController={
       req.body
     )
   ),
+  dwigitalReview:async(req,res)=>ok(
+    res,
+    await productReviews.upsertForDwigitalBuyer(
+      req.params.type,
+      req.params.productId,
+      req.user.id,
+      req.body
+    )
+  ),
 
  create:async(req,res)=>ok(res,await product.create(req.body),201),
  update:async(req,res)=>ok(res,await product.update(req.params.id,req.body))
@@ -288,11 +297,29 @@ const orderController={
    if(dwigitalOrder){
      const storedPayment=await require('../repositories/payments.repository')
        .findLatestForOrderForUser(req.params.id,req.user.id);
+     const dwigitalReview=await productReviews.findDwigitalForUser(
+       dwigitalOrder.provider_type,
+       dwigitalOrder.provider_product_id,
+       req.user.id
+     );
+     const {
+       review_image_path:reviewImagePath,
+       ...safeDwigitalOrder
+     }=dwigitalOrder;
 
      return ok(res,{
        ...o,
        items:[],
-       dwigital:dwigitalOrder,
+       dwigital:{
+         ...safeDwigitalOrder,
+         has_review:Boolean(dwigitalReview),
+         review_image_url:reviewImagePath
+           ? storage.publicUrl(
+               loadEnv().PUBLIC_ASSET_BUCKET,
+               reviewImagePath
+             )
+           : null
+       },
        payment:storedPayment
      });
    }
@@ -404,6 +431,7 @@ const dwigitalOrderController={
            const url=new URL(returnUrl);
            url.pathname='/orders/'+encodeURIComponent(created.order.id);
            url.search='';
+           url.searchParams.set('review','1');
            return url.toString();
          }catch{
            return returnUrl;
@@ -648,12 +676,44 @@ const ownerController={
  topOrders:async(req,res)=>ok(res,(await analytics.period(req.query.period||'30d',req.query.from,req.query.to)).top),
 
  providerProductSave:async(req,res)=>{
-  const saved=await require('../repositories/dwigital-display.repository')
-    .saveProviderProduct(
-      req.params.type,
-      req.params.productId,
-      req.body
-    );
+  const repo=require('../repositories/dwigital-display.repository');
+  const previous=await repo.findProviderProduct(
+    req.params.type,
+    req.params.productId
+  );
+  const saved=await repo.saveProviderProduct(
+    req.params.type,
+    req.params.productId,
+    req.body
+  );
+
+  const savedIconPaths=new Set(
+    (saved.variants||[])
+      .map(variant=>variant.icon_path)
+      .filter(Boolean)
+  );
+
+  for(const path of new Set(
+    (previous?.variants||[])
+      .map(variant=>variant.icon_path)
+      .filter(Boolean)
+  )){
+    if(savedIconPaths.has(path))continue;
+
+    let referenced;
+    try{
+      referenced=await repo.isMediaReferenced(path);
+    }catch{
+      continue;
+    }
+
+    if(referenced)continue;
+
+    await storage.remove(
+      loadEnv().PUBLIC_ASSET_BUCKET,
+      storage.publicObjectPath(path)
+    ).catch(()=>{});
+  }
 
   await recordOwnerAudit(req,{
     action:'SAVE_DWIGITAL_DISPLAY_PRODUCT',

@@ -139,6 +139,52 @@ test('product review API is authenticated and validated',()=>{
   );
 });
 
+test('Dwigital reviews share the server-only review table with verified provider purchases',()=>{
+  const migration=read(
+    'database/migrations/054_dwigital_product_reviews.sql'
+  );
+  const repository=read(
+    'src/repositories/product-reviews.repository.js'
+  );
+
+  assert.match(migration,/alter table public\.product_reviews[\s\S]*alter column product_id drop not null/i);
+  assert.match(migration,/provider_type text/i);
+  assert.match(migration,/provider_product_id text/i);
+  assert.match(migration,/ux_product_reviews_dwigital_user/i);
+
+  assert.match(repository,/async function listForDwigitalProduct/);
+  assert.match(repository,/async function summaryForDwigitalProduct/);
+  assert.match(repository,/async function viewerStateForDwigitalProduct/);
+  assert.match(repository,/async function upsertForDwigitalBuyer/);
+  assert.match(repository,/dwigital_orders/);
+  assert.match(repository,/o\.status IN \('PAID','PROCESSING','COMPLETED'\)/);
+  assert.match(repository,/digital\.supplier_refunded=false/);
+  assert.match(repository,/provider_product_id=\$2/);
+});
+
+test('Dwigital review route is authenticated and uses the existing review schema',()=>{
+  const source=read('src/routes/index.js');
+
+  assert.match(
+    source,
+    /apiRouter\.post\('\/provider-products\/:type\/:productId\/review',[\s\S]*requireAuth,[\s\S]*validate\(productReviewSchema\)/
+  );
+  assert.match(source,/api\.productController\.dwigitalReview/);
+});
+
+test('Dwigital product page shows reviews but leaves review submission to the post-payment modal',()=>{
+  const controller=read('src/controllers/page.controller.js');
+  const view=read('views/pages/dwigital-product-detail.ejs');
+
+  assert.match(controller,/productReviews\.listForDwigitalProduct/);
+  assert.match(controller,/productReviews\.summaryForDwigitalProduct/);
+  assert.match(view,/dwigitalReviewSummary\.reviewCount/);
+  assert.match(view,/dwigitalReviews\.forEach/);
+  assert.doesNotMatch(view,/data-product-review-form/);
+  assert.doesNotMatch(view,/Beri ulasan/);
+  assert.doesNotMatch(view,/Modul ulasan Dwigital belum terhubung/);
+});
+
 test('product detail keeps review summary but no longer contains the review editor',()=>{
   const source=read(
     'views/pages/product-detail.ejs'

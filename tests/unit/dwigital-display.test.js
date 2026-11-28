@@ -49,6 +49,67 @@ test('accepts sale prices above provider cost and calculates owner margin',()=>{
   assert.equal(result.variants[0].margin,5000);
 });
 
+test('allows a variant to reuse an existing icon from another variant of the product',()=>{
+  const variantsWithIcons=[
+    {
+      ...sourceVariants[0],
+      icon_path:'dwigital/digital/product-1/icon.webp'
+    },
+    {
+      ...sourceVariants[1],
+      icon_path:null
+    }
+  ];
+  const input=validInput();
+  input.variants[1].iconSourceVariantId='digital-variant-1';
+
+  const result=normalizeProviderProductSettings({
+    type:'digital',
+    providerProductId:'product-1',
+    input,
+    sourceVariants:variantsWithIcons
+  });
+
+  assert.equal(
+    result.variants[1].iconPath,
+    'dwigital/digital/product-1/icon.webp'
+  );
+});
+
+test('keeps a variant current icon when no replacement source is selected',()=>{
+  const iconPath='dwigital/digital/product-1/icon.webp';
+  const result=normalizeProviderProductSettings({
+    type:'digital',
+    providerProductId:'product-1',
+    input:validInput(),
+    sourceVariants:[
+      {...sourceVariants[0],icon_path:iconPath},
+      {...sourceVariants[1],icon_path:null}
+    ]
+  });
+
+  assert.equal(result.variants[0].iconPath,iconPath);
+  assert.equal(result.variants[1].iconPath,null);
+});
+
+test('rejects an icon source outside the product or without an icon',()=>{
+  const input=validInput();
+  input.variants[1].iconSourceVariantId='unknown-variant';
+
+  assert.throws(
+    ()=>normalizeProviderProductSettings({
+      type:'digital',
+      providerProductId:'product-1',
+      input,
+      sourceVariants:sourceVariants.map(variant=>({
+        ...variant,
+        icon_path:null
+      }))
+    }),
+    error=>error.code==='INVALID_DWIGITAL_ICON_SOURCE'
+  );
+});
+
 test('rejects sale prices below provider cost',()=>{
   const input=validInput();
   input.variants[0].retailPrice=9999;

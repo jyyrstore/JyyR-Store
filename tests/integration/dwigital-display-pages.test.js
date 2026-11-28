@@ -203,6 +203,20 @@ test('Dwigital detail page reuses local product detail presentation components',
 });
 
 
+test('Dwigital variant cards use product cover when a variant icon is missing',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+  const variantsStart=detailView.indexOf('providerProduct.variants.forEach');
+  const variantsEnd=detailView.indexOf(
+    '<span class="product-variant-card-details">',
+    variantsStart
+  );
+  const variantsMarkup=detailView.slice(variantsStart,variantsEnd);
+
+  assert.ok(variantsStart>=0&&variantsEnd>variantsStart);
+  assert.match(variantsMarkup,/variant\.icon_url\s*\|\|\s*providerProductCoverUrl/);
+  assert.match(variantsMarkup,/src="<%= variant\.icon_url\s*\|\|\s*providerProductCoverUrl %>"/);
+});
+
 test('Dwigital header keeps selected price aligned with variant title',()=>{
   const detailView=read('views/pages/dwigital-product-detail.ejs');
   const pagesCss=read('public/css/pages.css');
@@ -592,6 +606,16 @@ test('Dwigital detail page exposes metrics and canonical sections',()=>{
     'Dwigital stats must contain only three labels: category, views, and purchases'
   );
 
+  assert.match(
+    statsMarkup,
+    /providerProduct\.category_parent_name\s*\|\|\s*'Katalog Digital'/
+  );
+  assert.doesNotMatch(
+    statsMarkup,
+    /providerProduct\.category_name/,
+    'Cover statistics must show the main category without the subcategory'
+  );
+
   assert.doesNotMatch(
     statsMarkup,
     /\bVarian\b|providerVariantCount/,
@@ -640,6 +664,36 @@ test('Dwigital detail page exposes metrics and canonical sections',()=>{
     sheetIndex>detailContainerEnd &&
     sheetScriptIndex>sheetIndex,
     'Action sheet and initializer must sit after the product detail card'
+  );
+});
+
+test('hidden Dwigital zone field stays hidden when selecting a variant without a zone',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+  const styles=read('public/css/components.css');
+
+  assert.match(detailView,/data-zone-visible="<%= zoneVisible \? '1' : '0' %>"/);
+  assert.match(detailView,/zoneWrapper\.hidden=!zoneVisible/);
+  assert.match(
+    styles,
+    /\.field:not\(\[hidden\]\)\{display:flex/,
+    'Visible form fields use flex layout without overriding hidden state'
+  );
+});
+
+test('Dwigital buyer recipient field uses a concise label',()=>{
+  const detailView=read('views/pages/dwigital-product-detail.ejs');
+
+  assert.match(
+    detailView,
+    /email pembeli[\s\S]*nama pembeli/i
+  );
+  assert.match(
+    detailView,
+    /'Nama atau Email'/
+  );
+  assert.match(
+    detailView,
+    /data-target-label="<%= targetLabel %>"/
   );
 });
 
@@ -799,6 +853,33 @@ test('provider editor reuses signed upload helper and calculates live margin',()
   assert.match(pages,/data-provider-product-form/);
   assert.match(pages,/data-provider-category-form/);
   assert.match(pages,/data-provider-variant-price/);
+});
+
+test('Owner can show or hide all priced variants from the product editor',()=>{
+  const providerView=read('views/owner/index.ejs');
+  const pages=read('public/js/pages.js');
+
+  assert.match(providerView,/data-provider-variants-toggle-all/);
+  assert.match(providerView,/Tampilkan semua varian/);
+  assert.match(providerView,/data-provider-variants-toggle-all-note/);
+  assert.match(pages,/syncProviderVariantsVisibilityToggle/);
+  assert.match(pages,/toggle\.checked&&hasPrice/);
+});
+
+test('Owner can reuse a sibling variant icon without uploading another file',()=>{
+  const providerView=read('views/owner/index.ejs');
+  const pages=read('public/js/pages.js');
+  const routes=read('src/routes/index.js');
+  const repository=read('src/repositories/dwigital-display.repository.js');
+
+  assert.match(providerView,/data-provider-variant-icon-source/);
+  assert.match(providerView,/other\.variant_id!==variant\.variant_id&&other\.icon_url/);
+  assert.match(providerView,/data-icon-url="<%= other\.icon_url %>"/);
+  assert.match(pages,/iconSourceVariantId:variant\.querySelector\('\[data-provider-variant-icon-source\]'\)/);
+  assert.match(pages,/syncProviderVariantIconPreview/);
+  assert.match(routes,/iconSourceVariantId:z\.string\(\)\.trim\(\)\.max\(128\)\.nullable\(\)\.optional\(\)/);
+  assert.match(repository,/INVALID_DWIGITAL_ICON_SOURCE/);
+  assert.match(repository,/icon_path=EXCLUDED\.icon_path/);
 });
 
 test('Owner provider-product listing initializes an empty editor local',()=>{

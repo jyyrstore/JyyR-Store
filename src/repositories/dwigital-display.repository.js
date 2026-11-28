@@ -113,7 +113,12 @@ function normalizeProviderProductSettings({
       throw displayError('INVALID_DWIGITAL_DISPLAY_VARIANTS','Harga modal provider tidak valid.');
     }
 
-    sourceById.set(source.variant_id,{basePrice});
+    sourceById.set(source.variant_id,{
+      basePrice,
+      iconPath:typeof source.icon_path==='string'
+        ?source.icon_path
+        :null
+    });
   }
 
   const seen=new Set();
@@ -135,6 +140,28 @@ function normalizeProviderProductSettings({
 
     const retailPrice=safePrice(variant.retailPrice);
     const variantVisible=variant.isVisible===true;
+    const iconSourceVariantId=cleanText(
+      variant.iconSourceVariantId,
+      'Sumber icon varian',
+      {minimum:1,maximum:128,nullable:true}
+    );
+    let iconPath=source.iconPath;
+
+    if(iconSourceVariantId){
+      const iconSource=sourceById.get(iconSourceVariantId);
+
+      if(
+        iconSourceVariantId===variantId||
+        !iconSource?.iconPath
+      ){
+        throw displayError(
+          'INVALID_DWIGITAL_ICON_SOURCE',
+          'Sumber icon harus berupa varian lain dalam produk yang memiliki icon.'
+        );
+      }
+
+      iconPath=iconSource.iconPath;
+    }
 
     if(retailPrice!==null&&retailPrice<source.basePrice){
       throw displayError(
@@ -160,6 +187,7 @@ function normalizeProviderProductSettings({
       retailPrice,
       sortOrder:safeOrder(variant.sortOrder,'Urutan varian'),
       isVisible:variantVisible,
+      iconPath,
       basePrice:source.basePrice,
       margin:retailPrice===null?null:retailPrice-source.basePrice
     };
@@ -402,7 +430,8 @@ async function saveProviderProduct(type,providerProductId,input){
     input,
     sourceVariants:current.variants.map(variant=>({
       variant_id:variant.variant_id,
-      base_price:variant.base_price
+      base_price:variant.base_price,
+      icon_path:variant.icon_path
     }))
   });
 
@@ -411,7 +440,8 @@ async function saveProviderProduct(type,providerProductId,input){
     display_name:variant.displayName,
     retail_price:variant.retailPrice,
     sort_order:variant.sortOrder,
-    is_visible:variant.isVisible
+    is_visible:variant.isVisible,
+    icon_path:variant.iconPath
   })));
 
   await withTransaction(async(client)=>{
@@ -443,7 +473,8 @@ async function saveProviderProduct(type,providerProductId,input){
          display_name,
          retail_price,
          sort_order,
-         is_visible
+         is_visible,
+         icon_path
        )
        SELECT
          $1,
@@ -452,13 +483,15 @@ async function saveProviderProduct(type,providerProductId,input){
          incoming.display_name,
          incoming.retail_price,
          incoming.sort_order,
-         incoming.is_visible
+         incoming.is_visible,
+         incoming.icon_path
        FROM jsonb_to_recordset($3::jsonb) AS incoming(
          variant_id text,
          display_name text,
          retail_price bigint,
          sort_order integer,
-         is_visible boolean
+         is_visible boolean,
+         icon_path text
        )
        ON CONFLICT (variant_id) DO UPDATE
        SET
@@ -468,6 +501,7 @@ async function saveProviderProduct(type,providerProductId,input){
          retail_price=EXCLUDED.retail_price,
          sort_order=EXCLUDED.sort_order,
          is_visible=EXCLUDED.is_visible,
+         icon_path=EXCLUDED.icon_path,
          updated_at=now()`,
       [type,String(providerProductId),variantsJson]
     );

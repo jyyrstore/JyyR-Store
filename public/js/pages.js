@@ -3839,6 +3839,119 @@ ${productPricingModesMarkup('FIXED')}
     }
   }
 
+  function syncProviderVariantsVisibilityToggle(
+    form,
+    {applyToggle=false}={}
+  ){
+    if(!form)return;
+
+    const toggle=form.querySelector(
+      '[data-provider-variants-toggle-all]'
+    );
+    const note=form.querySelector(
+      '[data-provider-variants-toggle-all-note]'
+    );
+    const variants=Array.from(
+      form.querySelectorAll('[data-provider-variant]')
+    );
+    let allVisible=variants.length>0;
+    let unpricedCount=0;
+
+    variants.forEach(variant=>{
+      const price=variant.querySelector(
+        '[data-provider-variant-price]'
+      );
+      const visibility=variant.querySelector(
+        '[data-provider-variant-visible]'
+      );
+      const hasPrice=Boolean(price?.value.trim());
+
+      if(!hasPrice)unpricedCount++;
+
+      if(applyToggle&&visibility){
+        visibility.checked=toggle.checked&&hasPrice;
+      }
+
+      if(!hasPrice||visibility?.checked!==true){
+        allVisible=false;
+      }
+    });
+
+    if(!applyToggle&&toggle){
+      toggle.checked=allVisible;
+    }
+
+    if(note){
+      note.hidden=!(toggle?.checked&&unpricedCount>0);
+      note.textContent=unpricedCount
+        ? `${unpricedCount} varian belum memiliki harga jual, jadi belum bisa ditampilkan.`
+        : '';
+    }
+  }
+
+  function syncProviderVariantIconPreview(sourceInput){
+    const variant=sourceInput.closest('[data-provider-variant]');
+    const picker=sourceInput.closest('[data-jyyr-select]');
+    if(!variant||!picker)return;
+
+    const option=Array.from(
+      picker.querySelectorAll('[data-jyyr-select-option]')
+    ).find(item=>item.dataset.value===sourceInput.value);
+    const iconUrl=
+      option?.dataset.iconUrl||
+      variant.dataset.providerOriginalIconUrl||
+      '';
+    const current=variant.querySelector('[data-current-thumbnail]');
+    const preview=variant.querySelector('[data-thumbnail-preview]');
+    const empty=variant.querySelector('[data-thumbnail-empty]');
+    const image=current||preview;
+
+    if(image){
+      image.hidden=!iconUrl;
+
+      if(iconUrl){
+        image.src=iconUrl;
+      }else{
+        image.removeAttribute('src');
+      }
+    }
+
+    if(empty){
+      empty.hidden=Boolean(iconUrl);
+    }
+  }
+
+  document.addEventListener('change',event=>{
+    const iconSource=event.target.closest(
+      '[data-provider-variant-icon-source]'
+    );
+    const toggle=event.target.closest(
+      '[data-provider-variants-toggle-all]'
+    );
+    const visibility=event.target.closest(
+      '[data-provider-variant-visible]'
+    );
+
+    if(iconSource){
+      syncProviderVariantIconPreview(iconSource);
+      return;
+    }
+
+    if(toggle){
+      syncProviderVariantsVisibilityToggle(
+        toggle.closest('[data-provider-product-form]'),
+        {applyToggle:true}
+      );
+      return;
+    }
+
+    if(visibility){
+      syncProviderVariantsVisibilityToggle(
+        visibility.closest('[data-provider-product-form]')
+      );
+    }
+  });
+
   document.addEventListener('input',e=>{
     const providerPrice=e.target.closest('[data-provider-variant-price]');
 
@@ -3850,6 +3963,18 @@ ${productPricingModesMarkup('FIXED')}
 
       if(margin){
         margin.textContent=value===''?'—':money(Number(value)-basePrice);
+      }
+
+      const form=providerPrice.closest('[data-provider-product-form]');
+      const toggle=form?.querySelector(
+        '[data-provider-variants-toggle-all]'
+      );
+
+      if(toggle?.checked){
+        syncProviderVariantsVisibilityToggle(
+          form,
+          {applyToggle:true}
+        );
       }
     }
 
@@ -4315,7 +4440,8 @@ ${productPricingModesMarkup('FIXED')}
           displayName:variant.querySelector('[data-provider-variant-name]')?.value.trim()||null,
           retailPrice:price===''?null:Number(price),
           sortOrder:Number(variant.querySelector('[data-provider-variant-sort]')?.value||0),
-          isVisible:variant.querySelector('[data-provider-variant-visible]')?.checked===true
+          isVisible:variant.querySelector('[data-provider-variant-visible]')?.checked===true,
+          iconSourceVariantId:variant.querySelector('[data-provider-variant-icon-source]')?.value||null
         };
       });
 
@@ -5227,6 +5353,9 @@ ${productPricingModesMarkup('FIXED')}
       const productId=String(
         form.dataset.productId||''
       );
+      const reviewEndpoint=String(
+        form.dataset.reviewEndpoint||''
+      );
 
       const submit=form.querySelector(
         'button[type="submit"]'
@@ -5239,7 +5368,7 @@ ${productPricingModesMarkup('FIXED')}
         return;
       }
 
-      if(!productId)return;
+      if(!productId&&!reviewEndpoint)return;
 
       if(submit){
         submit.disabled=true;
@@ -5251,9 +5380,11 @@ ${productPricingModesMarkup('FIXED')}
 
       try{
         await api.request(
-          '/api/products/' +
-          encodeURIComponent(productId) +
-          '/review',
+          reviewEndpoint||(
+            '/api/products/' +
+            encodeURIComponent(productId) +
+            '/review'
+          ),
           {
             method:'POST',
             body:{
@@ -5352,7 +5483,18 @@ ${productPricingModesMarkup('FIXED')}
           String(order?.status||'')
             .toUpperCase();
 
-        if(successfulStatuses.has(status)){
+        if(order?.dwigital){
+          if(
+            failedStatuses.has(status)||
+            order.dwigital.supplier_refunded
+          ){
+            return null;
+          }
+
+          if(successfulStatuses.has(status)){
+            return order;
+          }
+        }else if(successfulStatuses.has(status)){
           return order;
         }
 
@@ -5383,11 +5525,37 @@ ${productPricingModesMarkup('FIXED')}
       return;
     }
 
-    const items=(
-      Array.isArray(order.items)
-        ? order.items
-        : []
-    ).filter(item=>item?.product_id && !item.has_review);
+    const dwigital=order.dwigital;
+    const items=dwigital
+      ? (
+          dwigital.has_review||
+          dwigital.supplier_refunded||
+          !dwigital.provider_type||
+          !dwigital.provider_product_id||
+          !['PAID','PROCESSING','COMPLETED'].includes(
+            String(order.status||'').toUpperCase()
+          )
+        )
+        ? []
+        : [{
+            product_id:'',
+            product_name:dwigital.product_name,
+            variant_id:dwigital.variant_id,
+            variant_label:dwigital.variant_name,
+            unit_price:dwigital.retail_price,
+            quantity:1,
+            review_image_url:dwigital.review_image_url||null,
+            review_endpoint:
+              '/api/provider-products/'+
+              encodeURIComponent(dwigital.provider_type)+'/'+
+              encodeURIComponent(dwigital.provider_product_id)+
+              '/review'
+          }]
+      : (
+          Array.isArray(order.items)
+            ? order.items
+            : []
+        ).filter(item=>item?.product_id && !item.has_review);
 
     if(!items.length){
       cleanPaymentReviewQuery();
@@ -5427,6 +5595,7 @@ ${productPricingModesMarkup('FIXED')}
         class="stack-form payment-review-prompt"
         data-payment-review-prompt-form
         data-order-id="${esc(order.id)}"
+        data-review-endpoint="${esc(item.review_endpoint||'')}"
       >
         <h2>Pembelian berhasil ✓</h2>
 
@@ -5615,6 +5784,8 @@ ${productPricingModesMarkup('FIXED')}
             'input[name="productId"]'
           )?.value||''
         );
+      const reviewEndpoint=
+        String(form.dataset.reviewEndpoint||'');
 
       const rating=Number(
         form.querySelector(
@@ -5635,7 +5806,7 @@ ${productPricingModesMarkup('FIXED')}
         'button[type="submit"]'
       );
 
-      if(!productId||!orderId){
+      if((!productId&&!reviewEndpoint)||!orderId){
         toast.error(
           'Data ulasan tidak lengkap.'
         );
@@ -5659,9 +5830,11 @@ ${productPricingModesMarkup('FIXED')}
 
       try{
         await api.request(
-          '/api/products/'+
-          encodeURIComponent(productId)+
-          '/review',
+          reviewEndpoint||(
+            '/api/products/'+
+            encodeURIComponent(productId)+
+            '/review'
+          ),
           {
             method:'POST',
             body:{

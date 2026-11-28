@@ -201,6 +201,207 @@ async function summaryForProduct(productId){
   };
 }
 
+function normalizeDwigitalTarget(providerType,providerProductId){
+  const type=String(providerType||'').trim().toLowerCase();
+  const productId=String(providerProductId||'').trim();
+
+  if(
+    !['digital','game'].includes(type)||
+    !/^[A-Za-z0-9_-]{1,128}$/.test(productId)
+  ){
+    throw notFound('Produk Dwigital tidak ditemukan.');
+  }
+
+  return {type,productId};
+}
+
+async function hasDwigitalPurchase(providerType,providerProductId,userId){
+  const target=normalizeDwigitalTarget(providerType,providerProductId);
+
+  return Boolean(
+    (
+      await query(
+        `select 1
+         from dwigital_display_products product
+         join dwigital_orders digital
+           on digital.provider_type=product.provider_type
+          and digital.provider_product_id=product.provider_product_id
+         join orders o on o.id=digital.order_id
+         where product.provider_type=$1
+           and product.provider_product_id=$2
+           and product.is_visible=true
+           and o.user_id=$3
+           and o.status IN ('PAID','PROCESSING','COMPLETED')
+           and digital.supplier_refunded=false
+         limit 1`,
+        [target.type,target.productId,userId]
+      )
+    ).rowCount
+  );
+}
+
+async function findDwigitalForUser(providerType,providerProductId,userId){
+  const target=normalizeDwigitalTarget(providerType,providerProductId);
+
+  return (
+    await query(
+      `select id,provider_type,provider_product_id,user_id,
+              rating,comment,created_at,updated_at
+       from product_reviews
+       where provider_type=$1
+         and provider_product_id=$2
+         and user_id=$3
+       limit 1`,
+      [target.type,target.productId,userId]
+    )
+  ).rows[0]||null;
+}
+
+async function viewerStateForDwigitalProduct(
+  providerType,
+  providerProductId,
+  userId
+){
+  if(!userId)return {review:null,canReview:false};
+
+  const target=normalizeDwigitalTarget(providerType,providerProductId);
+  const [review,eligible]=await Promise.all([
+    findDwigitalForUser(target.type,target.productId,userId),
+    hasDwigitalPurchase(target.type,target.productId,userId)
+  ]);
+
+  return {review,canReview:eligible};
+}
+
+const DWIGITAL_REVIEW_FROM=`from product_reviews pr
+       join profiles p on p.id=pr.user_id
+       join dwigital_display_products product
+         on product.provider_type=pr.provider_type
+        and product.provider_product_id=pr.provider_product_id
+       join lateral (
+         select coalesce(o.completed_at,o.paid_at,o.created_at) purchase_at
+         from dwigital_orders digital
+         join orders o on o.id=digital.order_id
+         where digital.provider_type=pr.provider_type
+           and digital.provider_product_id=pr.provider_product_id
+           and digital.supplier_refunded=false
+           and o.user_id=pr.user_id
+           and o.status IN ('PAID','PROCESSING','COMPLETED')
+         order by coalesce(o.completed_at,o.paid_at,o.created_at) desc
+         limit 1
+       ) purchase on true
+       where pr.product_id is null
+         and pr.provider_type=$1
+         and pr.provider_product_id=$2
+         and product.is_visible=true`;
+
+async function listForDwigitalProduct(
+  providerType,
+  providerProductId,
+  {limit=5,offset=0}={}
+){
+  const target=normalizeDwigitalTarget(providerType,providerProductId);
+
+  return (
+    await query(
+      `select
+         pr.id,
+         pr.provider_type,
+         pr.provider_product_id,
+         pr.rating,
+         pr.comment,
+         pr.created_at,
+         pr.updated_at,
+         p.username,
+         p.display_name,
+         purchase.purchase_at
+       ${DWIGITAL_REVIEW_FROM}
+       order by pr.created_at desc
+       limit $3 offset $4`,
+      [
+        target.type,
+        target.productId,
+        safeLimit(limit,5),
+        safeOffset(offset)
+      ]
+    )
+  ).rows;
+}
+
+async function summaryForDwigitalProduct(providerType,providerProductId){
+  const target=normalizeDwigitalTarget(providerType,providerProductId);
+  const row=(
+    await query(
+      `select
+         count(*)::int review_count,
+         round(coalesce(avg(pr.rating),0),1)::numeric average_rating,
+         count(*) filter(where pr.rating=5)::int five_star,
+         count(*) filter(where pr.rating=4)::int four_star,
+         count(*) filter(where pr.rating=3)::int three_star,
+         count(*) filter(where pr.rating=2)::int two_star,
+         count(*) filter(where pr.rating=1)::int one_star
+       ${DWIGITAL_REVIEW_FROM}`,
+      [target.type,target.productId]
+    )
+  ).rows[0]||{};
+
+  return {
+    reviewCount:Number(row.review_count||0),
+    averageRating:Number(row.average_rating||0),
+    distribution:{
+      5:Number(row.five_star||0),
+      4:Number(row.four_star||0),
+      3:Number(row.three_star||0),
+      2:Number(row.two_star||0),
+      1:Number(row.one_star||0)
+    }
+  };
+}
+
+async function upsertForDwigitalBuyer(
+  providerType,
+  providerProductId,
+  userId,
+  input
+){
+  const target=normalizeDwigitalTarget(providerType,providerProductId);
+  const normalized=normalizeInput(input);
+
+  if(!(await hasDwigitalPurchase(target.type,target.productId,userId))){
+    throw forbidden(
+      'Ulasan hanya dapat diberikan setelah pesanan Dwigital berhasil.'
+    );
+  }
+
+  const inserted=await query(
+    `insert into product_reviews(
+       provider_type,provider_product_id,user_id,rating,comment
+     )
+     values($1,$2,$3,$4,$5)
+     on conflict do nothing
+     returning
+       id,provider_type,provider_product_id,user_id,rating,comment,
+       created_at,updated_at`,
+    [
+      target.type,
+      target.productId,
+      userId,
+      normalized.rating,
+      normalized.comment
+    ]
+  );
+
+  if(!inserted.rows[0]){
+    throw new AppError(
+      409,
+      'REVIEW_ALREADY_EXISTS',
+      'Rating untuk produk ini sudah diberikan dan tidak dapat diubah lagi.'
+    );
+  }
+
+  return inserted.rows[0];
+}
+
 async function upsertForBuyer(productId,userId,input){
   const normalized=normalizeInput(input);
 
@@ -249,5 +450,11 @@ module.exports={
   findForUser,
   viewerState,
   canReview,
-  upsertForBuyer
+  upsertForBuyer,
+  hasDwigitalPurchase,
+  findDwigitalForUser,
+  listForDwigitalProduct,
+  summaryForDwigitalProduct,
+  viewerStateForDwigitalProduct,
+  upsertForDwigitalBuyer
 };

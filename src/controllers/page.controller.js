@@ -161,6 +161,22 @@ async function dwigitalProductDetail(req,res,next){
       throw notFound();
     }
 
+    const reviewPager=pageParams({
+      page:req.query.reviewPage,
+      limit:5
+    });
+
+    const [
+      dwigitalReviews,
+      dwigitalReviewSummary
+    ]=await Promise.all([
+      productReviews.listForDwigitalProduct(type,productId,{
+        limit:reviewPager.limit,
+        offset:reviewPager.offset
+      }),
+      productReviews.summaryForDwigitalProduct(type,productId)
+    ]);
+
     const publicAssetBucket=loadEnv().PUBLIC_ASSET_BUCKET;
 
     providerProduct.cover_url=providerProduct.cover_path
@@ -240,6 +256,14 @@ async function dwigitalProductDetail(req,res,next){
         providerProduct,
         relatedProducts,
         bestSellerProducts,
+        dwigitalReviews,
+        dwigitalReviewTotal:dwigitalReviewSummary.reviewCount,
+        dwigitalReviewSummary,
+        dwigitalReviewsPagination:paginationMeta(
+          dwigitalReviewSummary.reviewCount,
+          reviewPager.page,
+          reviewPager.limit
+        ),
         isAuthenticated:Boolean(req.user?.id),
       })
     );

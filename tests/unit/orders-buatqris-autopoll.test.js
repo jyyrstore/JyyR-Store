@@ -130,6 +130,14 @@ test('Dwigital sidecar orders appear in customer order history and cards',()=>{
   assert.match(listQuery,/null::uuid\s+as variant_id/i);
   assert.match(listQuery,/as is_dwigital/i);
   assert.match(listQuery,/digital\.retail_price\s+as line_total/i);
+  assert.match(
+    listQuery,
+    /display\.cover_path\s+as product_thumbnail_path/i
+  );
+  assert.match(
+    listQuery,
+    /left join dwigital_display_products display[\s\S]*?display\.provider_type=digital\.provider_type[\s\S]*?display\.provider_product_id=digital\.provider_product_id/i
+  );
   assert.match(countQuery,/dwigital_orders/i);
 
   for(const file of [

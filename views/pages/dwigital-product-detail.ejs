@@ -60,9 +60,6 @@
             <%- icon('category-management','icon category-inline-icon') %>
             <span>
               <%= providerProduct.category_parent_name || 'Katalog Digital' %>
-              <% if(providerProduct.category_name){ %>
-                · <%= providerProduct.category_name %>
-              <% } %>
             </span>
           </span>
         </span>
@@ -129,10 +126,15 @@
             )||
             zoneField?.required===true;
           const zoneVisible=zoneRequired||Boolean(zoneField);
-          const targetLabel=
+          const targetLabelSource=
             targetField?.label||
             variant.target_label||
             'Target';
+          const targetLabel=
+            /email pembeli/i.test(targetLabelSource)&&
+            /nama pembeli/i.test(targetLabelSource)
+              ? 'Nama atau Email'
+              : targetLabelSource;
           const zoneLabel=
             zoneField?.label||
             variant.zone_label||
@@ -153,9 +155,9 @@
             <%= canPurchase ? '' : 'disabled' %>
           >
             <span class="product-variant-option-icon" aria-hidden="true">
-              <% if(variant.icon_url){ %>
+              <% if(variant.icon_url||providerProductCoverUrl){ %>
                 <img
-                  src="<%= variant.icon_url %>"
+                  src="<%= variant.icon_url||providerProductCoverUrl %>"
                   alt=""
                   width="38"
                   height="38"
@@ -583,35 +585,118 @@
       <div class="section-header product-reviews-header">
         <div>
           <h2 id="dwigital-product-reviews-title">Ulasan Pembeli</h2>
-          <p>
-            Modul ulasan Dwigital belum terhubung dengan sistem ulasan
-            produk lokal. Rating dan review tidak ditampilkan sebelum
-            tersedia data yang valid.
-          </p>
+          <p>Rating dan ulasan dari pembeli Dwigital dengan pesanan berhasil.</p>
         </div>
       </div>
 
       <div class="product-review-summary-grid product-review-summary-grid-single">
         <section
           class="product-review-chart panel"
-          aria-label="Status ulasan Dwigital"
+          aria-label="Ringkasan ulasan Dwigital"
         >
           <div class="product-review-panel-title">
             <div>
               <div class="eyebrow">Ulasan Dwigital</div>
               <h3>Rating Pembelian</h3>
             </div>
-            <span class="product-review-count">Belum tersedia</span>
-          </div>
-
-          <div class="product-review-summary-foot">
-            <strong>Rating belum tersedia</strong>
-            <span>
-              Data ulasan Dwigital belum terintegrasi.
+            <span class="product-review-count">
+              <% if(Number(dwigitalReviewSummary.reviewCount||0)>0){ %>
+                <%= Number(dwigitalReviewSummary.reviewCount) %> Ulasan
+              <% }else{ %>
+                Belum tersedia
+              <% } %>
             </span>
           </div>
+
+          <% if(Number(dwigitalReviewSummary.reviewCount||0)>0){ %>
+            <div class="product-review-bars">
+              <% [5,4,3,2,1].forEach(star=>{
+                const count=Number(
+                  dwigitalReviewSummary.distribution?.[star]||0
+                );
+                const total=Number(dwigitalReviewSummary.reviewCount||0);
+                const percent=total
+                  ? Math.round((count/total)*100)
+                  : 0;
+              %>
+                <div class="product-review-bar-row">
+                  <span
+                    class="product-review-stars-label"
+                    aria-label="<%= star %> dari 5 bintang"
+                  ><%= '★'.repeat(star) %><%= '☆'.repeat(5-star) %></span>
+                  <span class="product-review-bar-track" aria-hidden="true">
+                    <span style="width:<%= percent %>%"></span>
+                  </span>
+                  <strong><%= percent %>%</strong>
+                </div>
+              <% }) %>
+            </div>
+
+            <div class="product-review-summary-foot">
+              <strong>
+                ★ <%= Number(dwigitalReviewSummary.averageRating||0).toFixed(1) %> / 5.0
+              </strong>
+              <span>•</span>
+              <span><%= Number(providerProduct.purchase_count||0) %> Pembelian</span>
+            </div>
+          <% }else{ %>
+            <div class="product-review-summary-foot">
+              <strong>Rating belum tersedia</strong>
+              <span>Belum ada ulasan dari pembelian Dwigital yang berhasil.</span>
+            </div>
+          <% } %>
         </section>
       </div>
+
+      <div class="product-review-list-wrap">
+        <div class="product-review-list-head">
+          <div><h3>Ulasan terbaru</h3></div>
+        </div>
+
+        <% if(dwigitalReviews.length){ %>
+          <div class="product-review-list">
+            <% dwigitalReviews.forEach(review=>{
+              const displayName=review.display_name||review.username||'Pembeli';
+              const initial=String(displayName).trim().slice(0,1).toUpperCase()||'P';
+            %>
+              <article class="product-review-card">
+                <div class="product-review-avatar" aria-hidden="true"><%= initial %></div>
+                <div class="product-review-content">
+                  <div class="product-review-topline">
+                    <div class="product-review-user"><strong><%= displayName %></strong></div>
+                    <span class="product-review-verified">✓ Terverifikasi</span>
+                  </div>
+                  <div
+                    class="product-review-rating"
+                    aria-label="Rating <%= review.rating %> dari 5"
+                  >
+                    <% for(let star=1;star<=5;star++){ %>
+                      <span
+                        class="<%= star<=Number(review.rating)?'is-filled':'is-empty' %>"
+                        aria-hidden="true"
+                      ><%= star<=Number(review.rating)?'★':'☆' %></span>
+                    <% } %>
+                  </div>
+                  <p class="product-review-comment">
+                    <%= review.comment %><span class="product-review-time"> · <%= formatDate(review.purchase_at||review.created_at) %></span>
+                  </p>
+                </div>
+              </article>
+            <% }) %>
+          </div>
+          <%- include('../partials/pagination',{
+            pagination:dwigitalReviewsPagination,
+            param:'reviewPage',
+            label:'Pagination ulasan Dwigital'
+          }) %>
+        <% }else{ %>
+          <%- include('../partials/empty',{
+            title:'Belum ada ulasan pembeli',
+            description:'Ulasan akan tampil setelah pembelian Dwigital berhasil dan data pembeli terverifikasi.'
+          }) %>
+        <% } %>
+      </div>
+
     </section>
 
     <% const dwigitalRecommendationSections = [

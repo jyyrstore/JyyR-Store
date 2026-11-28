@@ -140,13 +140,16 @@ async function listItemsForUser(userId,{limit=50,offset=0}={}){
            digital.retail_price as unit_price,
            1::integer as quantity,
            digital.retail_price as line_total,
-           null::text as product_thumbnail_path,
+           display.cover_path as product_thumbnail_path,
            null::text as variant_icon_path,
            true as is_dwigital,
            digital.supplier_status as dwigital_supplier_status
          from orders o
          join dwigital_orders digital
            on digital.order_id=o.id
+         left join dwigital_display_products display
+           on display.provider_type=digital.provider_type
+          and display.provider_product_id=digital.provider_product_id
          where o.user_id=$1
        ),
        page_items as (

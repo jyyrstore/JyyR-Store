@@ -475,6 +475,20 @@
                     untuk menentukan harga pelanggan. Margin dihitung otomatis
                     dari harga jual dikurangi harga modal.
                   </p>
+                  <% const allProviderVariantsVisible=(providerProduct.variants||[]).length>0&&(providerProduct.variants||[]).every(variant=>variant.is_visible===true&&variant.retail_price!==null&&variant.retail_price!==undefined); %>
+                  <label class="switch-row">
+                    <span>Tampilkan semua varian</span>
+                    <input
+                      type="checkbox"
+                      data-provider-variants-toggle-all
+                      <%= allProviderVariantsVisible?'checked':'' %>
+                    >
+                  </label>
+                  <small
+                    class="muted"
+                    data-provider-variants-toggle-all-note
+                    hidden
+                  ></small>
                 </section>
 
                 <section class="stack-form">
@@ -485,12 +499,20 @@
                   </div>
                 <% } %>
 
-                <% (providerProduct.variants||[]).forEach(variant=>{ %>
+                <% (providerProduct.variants||[]).forEach(variant=>{
+                  const otherIconVariants=(providerProduct.variants||[]).filter(
+                    other=>other.variant_id!==variant.variant_id&&other.icon_url
+                  );
+                  const selectedIconSource=otherIconVariants.find(
+                    other=>other.icon_path===variant.icon_path
+                  );
+                %>
                   <article
                     class="product-modal-section stack-form"
                     data-provider-variant
                     data-variant-id="<%= variant.variant_id %>"
                     data-provider-base-price="<%= variant.base_price %>"
+                    data-provider-original-icon-url="<%= variant.icon_url||'' %>"
                   >
                     <div class="product-modal-section-title">
                       <strong><%= variant.source_name||variant.display_name %></strong>
@@ -585,6 +607,52 @@
                       <div class="product-upload-info">
                         <strong>Icon varian</strong>
                         <small>Gunakan icon JPG, PNG, atau WebP.</small>
+
+                        <% if(otherIconVariants.length){ %>
+                          <label class="field">
+                            <span>Gunakan icon varian lain</span>
+                            <div class="jyyr-select" data-jyyr-select>
+                              <input
+                                type="hidden"
+                                data-jyyr-select-value
+                                data-provider-variant-icon-source
+                                value="<%= selectedIconSource?.variant_id||'' %>"
+                              >
+                              <button
+                                class="jyyr-select-trigger"
+                                type="button"
+                                aria-haspopup="listbox"
+                                aria-expanded="false"
+                                data-jyyr-select-trigger
+                              >
+                                <span data-jyyr-select-label></span>
+                                <span class="jyyr-select-chevron" aria-hidden="true"></span>
+                              </button>
+                              <div class="jyyr-select-menu" role="listbox" data-jyyr-select-menu>
+                                <button
+                                  type="button"
+                                  class="jyyr-select-option"
+                                  role="option"
+                                  data-jyyr-select-option
+                                  data-value=""
+                                  data-label="Tidak mengubah icon"
+                                >Tidak mengubah icon</button>
+                                <% otherIconVariants.forEach(other=>{ %>
+                                  <button
+                                    type="button"
+                                    class="jyyr-select-option"
+                                    role="option"
+                                    data-jyyr-select-option
+                                    data-value="<%= other.variant_id %>"
+                                    data-label="<%= other.display_name||other.source_name||'Varian' %>"
+                                    data-icon-url="<%= other.icon_url %>"
+                                  ><%= other.display_name||other.source_name||'Varian' %></button>
+                                <% }) %>
+                              </div>
+                            </div>
+                            <small class="muted">Icon akan dipakai ulang tanpa mengunggah file.</small>
+                          </label>
+                        <% } %>
 
                         <div
                           class="jyyr-file-picker"
